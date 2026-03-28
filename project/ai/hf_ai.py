@@ -1,28 +1,8 @@
-import requests
-import os
-from dotenv import load_dotenv
+from textblob import TextBlob
 
-load_dotenv()
-
-API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-
-HEADERS = {
-    "Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"
-}
-
-def generate_answer(question, context):
-    prompt = f"""
-    Based on the following customer feedback:
-    {context}
-
-    Answer clearly:
-    {question}
-    """
-
-    response = requests.post(
-        API_URL,
-        headers=HEADERS,
-        json={"inputs": prompt}
-    )
-
-    return response.json()[0]["generated_text"]
+def analyze_text(text: str) -> dict:
+    analysis = TextBlob(str(text))
+    return {
+        "sentiment": "positive" if analysis.sentiment.polarity > 0.1 else "negative" if analysis.sentiment.polarity < -0.1 else "neutral",
+        "polarity": analysis.sentiment.polarity
+    }

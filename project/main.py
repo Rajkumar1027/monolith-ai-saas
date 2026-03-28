@@ -317,3 +317,8 @@ def get_history(current_user: dict = Depends(get_current_user)):
     data = list(collection.find({"owner": email}, {"_id": 0}))
     old_data = list(collection.find({"username": current_user.get("username"), "owner": {"$exists": False}}, {"_id": 0}))
     return data + old_data
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("project.main:app", host="0.0.0.0", port=port)
