@@ -11,3 +11,4 @@ certifi
 python-jose[cryptography]
 passlib[bcrypt]
 slowapi
+sentry-sdk==1.44.0
