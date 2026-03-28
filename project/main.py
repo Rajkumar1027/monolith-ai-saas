@@ -71,10 +71,8 @@ def call_ai(prompt):
 
 origins = [
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
-    os.getenv("FRONTEND_URL", "https://your-frontend.vercel.app")
+    "http://localhost:3000",
+    "https://monolith-ai-saas.vercel.app"
 ]
 
 app.add_middleware(
