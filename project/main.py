@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from project.ai.hf_ai import generate_answer
+from project.ai.hf_ai import analyze_text as generate_answer
 from project.db.pinecone_db import store_feedback, search_feedback
 from project.db.mongo import collection, users_collection, db
 from project.auth import hash_password, verify_password, create_access_token, create_refresh_token, get_current_user
