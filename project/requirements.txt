@@ -65,7 +65,7 @@ starlette==0.52.1
 sympy==1.14.0
 threadpoolctl
 tokenizers==0.22.2
-torch
+torch --index-url https://download.pytorch.org/whl/cpu
 tqdm
 transformers
 typer==0.24.1
