@@ -71,7 +71,10 @@ def call_ai(prompt):
 
 origins = [
     "http://localhost:5173",
-    "http://localhost:3000",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:5176",
+    "https://monolith-ai-saas.onrender.com",
     "https://monolith-ai-saas.vercel.app"
 ]
 

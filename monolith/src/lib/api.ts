@@ -3,7 +3,7 @@
  * All fetch calls use VITE_BASE_URL from the .env file.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://monolith-ai-saas.onrender.com';
 
 /** Error thrown when the backend is unreachable */
 export class BackendOfflineError extends Error {
