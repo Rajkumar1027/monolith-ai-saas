@@ -1,0 +1,11 @@
+# Environments
+venv/
+env/
+__pycache__/
+
+# Secrets
+.env
+
+# Node modules (for frontend)
+monolith/node_modules/
+starting_page/
