@@ -9,7 +9,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'https://monolith-ai-saas.onren
 export class BackendOfflineError extends Error {
   constructor() {
     super(
-      'Backend not running. Start with:\n  uvicorn project.main:app --reload'
+      'System communication failure. Please ensure the Monolith Engine is reachable.'
     );
     this.name = 'BackendOfflineError';
   }
@@ -114,12 +114,17 @@ export async function loginUser(data: any) {
   return res.json();
 }
 
-/** GET / — quick health check */
+/** GET /health — quick health check */
 export async function checkBackendHealth(): Promise<boolean> {
   try {
-    await safeFetch(`${BASE_URL}/`);
-    return true;
-  } catch {
+    const res = await fetch(`https://monolith-ai-saas.onrender.com/health`, {
+      method: 'GET',
+    });
+    // The "Backend not running" popup must ONLY appear if this fetch throws a network error,
+    // not on any 200/400/500 response.
+    return true; 
+  } catch (err) {
+    console.error("Health check network error:", err);
     return false;
   }
 }

@@ -69,15 +69,17 @@ def call_ai(prompt):
         raise HTTPException(status_code=502, detail="AI service error")
 
 
-origins = [
-    "http://localhost:5173",
-    "http://localhost:5176",
-    "https://monolith-ai-saas.onrender.com"
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:3000",
+        "https://monolith-ai-saas.onrender.com",
+        "https://*.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -145,24 +147,36 @@ def home():
     return {"message": "MONOLITH Intelligence Engine Online 🚀"}
 
 @app.post("/register")
-def register(user: UserCreate):
+async def register(user: dict):
     try:
-        logger.info(f"Registering user: {user.username}")
-        existing_user = users_collection.find_one({"username": user.username})
+        if db is None:
+            raise HTTPException(status_code=503, detail="Database not connected")
+        
+        username = user.get("username")
+        email = user.get("email")
+        password = user.get("password")
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="Username and password are required")
+
+        existing_user = users_collection.find_one({"username": username})
         if existing_user:
             raise HTTPException(status_code=400, detail="Username already registered")
         
-        hashed_password = hash_password(user.password)
+        hashed_password = hash_password(password)
         new_user = {
-            "username": user.username,
-            "email": user.email,
+            "username": username,
+            "email": email,
             "password": hashed_password
         }
         users_collection.insert_one(new_user)
-        return {"message": "User registered successfully"}
+        print(f"✅ User registered: {email}")
+        return {"message": "Registration successful"}
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logger.error(f"REGISTRATION_ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+        print(f"❌ REGISTRATION_ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/login")
 async def login(user: UserLogin, response: Response):

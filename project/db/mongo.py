@@ -9,18 +9,19 @@ MONGO_URL = os.getenv("MONGO_URL")
 
 try:
     client = MongoClient(
-        os.getenv("MONGO_URL"),
+        MONGO_URL,
         tls=True,
         tlsAllowInvalidCertificates=True,
+        tlsCAFile=certifi.where(),
         serverSelectionTimeoutMS=5000
     )
     # Trigger a ping to confirm connection
     client.admin.command('ping')
-    print("✅ MongoDB Connected")
+    print("✅ Connected to MongoDB")
+    db = client["ai_dashboard"] # Use clear database name
 except Exception as e:
-    print(f"❌ MongoDB Connection Error: {str(e)}")
+    print(f"❌ MongoDB connection failed: {e}")
+    db = None
 
-db = client["ai_dashboard"]
-
-collection = db["analysis"]
-users_collection = db["users"]
+collection = db["analysis"] if db is not None else None
+users_collection = db["users"] if db is not None else None

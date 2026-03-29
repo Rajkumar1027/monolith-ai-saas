@@ -39,7 +39,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch("http://localhost:8000/health");
+        const res = await fetch("https://monolith-ai-saas.onrender.com/health");
         if (res.ok) {
           setBackendOffline(false);
         }
