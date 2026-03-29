@@ -260,8 +260,9 @@ export const FeedbackAnalysisPage: React.FC = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-      className="px-8 max-w-7xl mx-auto space-y-16 monolith-grid relative overflow-hidden"
+      className="px-8 max-w-7xl mx-auto py-12 space-y-12 relative overflow-hidden"
     >
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-[24px]">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
 
       {/* Backend Offline Banner */}
@@ -333,7 +334,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             className={cn(
-              "group relative glass-card h-56 flex flex-col items-center justify-center space-y-6 cursor-pointer overflow-hidden transition-all duration-500",
+              "group relative glass-panel h-56 flex flex-col items-center justify-center space-y-6 cursor-pointer overflow-hidden transition-all duration-500",
               uploadError ? "border-red-500/30 hover:border-red-500/50" : ""
             )}
           >
@@ -398,7 +399,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
         <motion.div 
           whileHover={{ y: -8, scale: 1.01, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="glass-card p-8 flex flex-col justify-between group/card"
+          className="glass-panel p-8 flex flex-col justify-between group/card lg:col-span-4"
         >
           <div>
             <div className="flex justify-between items-start mb-10">
@@ -418,10 +419,14 @@ export const FeedbackAnalysisPage: React.FC = () => {
                 <motion.div 
                   key={type} 
                   whileHover={{ x: 4, backgroundColor: "rgba(255,255,255,0.05)" }}
-                  className="w-full flex justify-between items-center text-[0.7rem] uppercase tracking-widest text-white/50 py-1.5 px-3 rounded-lg transition-all group/item cursor-default"
+                  className={cn(
+                    "w-full flex justify-between items-center text-[0.7rem] uppercase tracking-widest py-1.5 px-3 rounded-full transition-all group/item cursor-default border border-white/5",
+                    idx === 0 ? "bg-green-500/10 text-green-400" : 
+                    idx === 1 ? "bg-white/10 text-white/60" : "bg-red-500/10 text-red-400"
+                  )}
                 >
                   <span className="flex items-center gap-3"><span className={cn("w-2 h-2 rounded-full", dotColor)}></span> {type}</span>
-                  <span className="text-white font-black group-hover/item:scale-110 transition-transform">{isUploaded ? `${val}%` : '--'}</span>
+                  <span className="font-black group-hover/item:scale-110 transition-transform">{isUploaded ? `${val}%` : '--'}</span>
                 </motion.div>
               );
             })}
@@ -431,7 +436,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
         <motion.div 
           whileHover={{ y: -8, scale: 1.005, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="md:col-span-2 lg:col-span-3 glass-card p-8 relative overflow-hidden group/card"
+          className="md:col-span-12 lg:col-span-8 glass-panel p-8 relative overflow-hidden group/card"
         >
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
             <div>
@@ -543,7 +548,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
         <motion.div 
           whileHover={{ y: -8, scale: 1.005, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="lg:col-span-2 glass-card p-8 relative overflow-hidden group/card"
+          className="lg:col-span-12 glass-panel p-8 relative overflow-hidden group/card"
         >
           <div className="flex justify-between items-start mb-10">
             <div>
@@ -673,6 +678,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
           )}>{isUploaded ? stats.anomalies : '--'}</p>
         </motion.div>
       </motion.footer>
+      </div>
     </motion.div>
   );
 };

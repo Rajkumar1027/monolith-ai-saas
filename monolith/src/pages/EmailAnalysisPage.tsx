@@ -653,8 +653,9 @@ export const EmailAnalysisPage: React.FC = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-      className="max-w-4xl mx-auto px-6 space-y-24 monolith-grid relative"
+      className="max-w-7xl mx-auto px-6 py-12 space-y-12 relative overflow-hidden"
     >
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-[24px]">
       <Toaster position="bottom-right" theme="dark" />
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
       <div className="absolute top-0 left-0 p-4 opacity-10 pointer-events-none z-0">
@@ -716,7 +717,7 @@ export const EmailAnalysisPage: React.FC = () => {
             placeholder="Search communications by sender, subject, or content..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-surface-container-low border border-white/10 pl-16 pr-16 py-6 text-lg font-headline focus:outline-none focus:border-primary/40 transition-all placeholder:text-on-surface-variant/50 shadow-2xl rounded-sm"
+            className="w-full glass-panel pl-16 pr-16 py-6 text-lg font-headline focus:outline-none focus:border-primary/40 transition-all placeholder:text-on-surface-variant/50 shadow-2xl rounded-2xl"
           />
           {searchTerm && (
             <button 
@@ -748,14 +749,13 @@ export const EmailAnalysisPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
-              whileHover={{ y: -4, backgroundColor: "rgba(255, 255, 255, 0.05)", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}
-              className="bg-surface-container p-8 border-l border-white/10 group cursor-pointer transition-all duration-500"
+              className="glass-panel p-8 group cursor-pointer lg:col-span-4"
             >
               <div className="flex justify-between items-start mb-6">
-                <span className="text-xs tracking-[0.2em] text-on-surface-variant/70 uppercase">{stat.label}</span>
+                <span className="text-xs tracking-[0.2em] text-white/50 uppercase font-bold">{stat.label}</span>
                 <MotionIcon><stat.icon size={14} className="text-primary/70 group-hover:text-primary transition-colors" /></MotionIcon>
               </div>
-              <div className="text-5xl font-headline font-bold group-hover:text-primary transition-colors">{stat.value}</div>
+              <div className="text-5xl font-headline font-bold text-high-contrast group-hover:text-primary transition-colors">{stat.value}</div>
             </motion.div>
           ))}
         </div>
@@ -2033,6 +2033,7 @@ export const EmailAnalysisPage: React.FC = () => {
           </motion.div>
         </div>
       </motion.section>
+      </div>
     </motion.div>
   );
 };

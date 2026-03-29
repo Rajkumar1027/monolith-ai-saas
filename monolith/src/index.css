@@ -1,23 +1,99 @@
-/* Global styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+@theme {
+  --color-primary: #0A84FF;
+  --color-secondary: #5E5CE6;
+  --color-accent: #64D2FF;
+  --font-headline: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  background-color: #050505;
+  color: white;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* iOS 26 Liquid Glass Design System */
+
+.liquid-glass-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #050505;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.liquid-glass-pulse {
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  animation: pulse-move 15s infinite alternate ease-in-out;
+}
+
+.liquid-glass-pulse-blue {
+  background: #0A84FF;
+  top: -10%;
+  left: -10%;
+}
+
+.liquid-glass-pulse-purple {
+  background: #5E5CE6;
+  bottom: -10%;
+  right: -10%;
+  animation-delay: -7s;
+}
+
+@keyframes pulse-move {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(10%, 10%) scale(1.1); }
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 20px;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.glass-nav {
+  background: rgba(0, 0, 0, 0.40);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-pill {
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(12px);
+  transition: all 0.2s ease;
+}
+
+.glass-pill:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.glass-pill:active {
+  transform: scale(0.95);
+}
+
+.text-high-contrast {
+  color: white !important;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }

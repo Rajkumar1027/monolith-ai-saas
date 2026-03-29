@@ -58,7 +58,7 @@ export const FeedbackFeed: React.FC<FeedbackFeedProps> = ({ data }) => {
   return (
     <motion.div 
       whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}
-      className="glass-card p-8 h-[480px] flex flex-col group/card relative overflow-hidden"
+      className="glass-panel p-8 h-[480px] flex flex-col group/card relative overflow-hidden"
     >
       <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none"></div>
       
@@ -78,7 +78,7 @@ export const FeedbackFeed: React.FC<FeedbackFeedProps> = ({ data }) => {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="p-6 bg-white/[0.03] border border-white/10 rounded-2xl hover:bg-white/[0.06] hover:border-white/20 transition-all group/item"
+              className="p-6 bg-white/[0.05] border border-white/10 rounded-2xl hover:bg-white/[0.08] hover:border-white/20 transition-all group/item"
             >
               <div className="flex justify-between items-start mb-4">
                 <span className={cn(
@@ -143,7 +143,7 @@ export const FeedbackFeed: React.FC<FeedbackFeedProps> = ({ data }) => {
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleGenerateReply(index)}
                     disabled={generatingId === index}
-                    className="glass-button-primary !px-4 !py-2 !text-[0.6rem] !rounded-lg"
+                    className="glass-pill !px-4 !py-2 !text-[0.6rem]"
                   >
                     {generatingId === index ? (
                       <><MotionIcon><Loader2 size={12} className="animate-spin" /></MotionIcon> Generating...</>

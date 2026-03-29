@@ -24,7 +24,7 @@ export const TopicMap: React.FC<TopicMapProps> = ({ isUploaded, isLoading }) => 
   return (
     <motion.div 
       whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}
-      className="glass-card p-8 h-[480px] flex flex-col relative overflow-hidden group/card shadow-lg"
+      className="glass-panel p-8 h-[480px] flex flex-col relative overflow-hidden group/card shadow-lg"
     >
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px]"></div>
       

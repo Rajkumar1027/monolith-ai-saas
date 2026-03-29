@@ -59,7 +59,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ startDate, endDate, isUp
     <motion.div 
       whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}
       className={cn(
-        "glass-card p-10 h-[560px] flex flex-col relative overflow-hidden group/ai",
+        "glass-panel p-10 h-[560px] flex flex-col relative overflow-hidden group/ai",
         isUploaded ? "shadow-[0_0_50px_rgba(255,255,255,0.05)]" : ""
       )}
     >
@@ -147,10 +147,10 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ startDate, endDate, isUp
             >
               {/* Urgency and Topic Grid */}
               <div className="grid grid-cols-2 gap-6">
-                <div className="bg-white/5 p-6 border border-white/10 rounded-2xl shadow-inner group/insight">
+                <div className="bg-white/[0.05] p-6 border border-white/10 rounded-2xl shadow-inner group/insight">
                    <div className="flex justify-between items-center mb-4">
                      <p className="text-[0.65rem] text-white/50 uppercase font-bold tracking-widest">Urgency Score</p>
-                     <span className={cn("text-xs font-black", insights?.urgency_score && insights.urgency_score > 7 ? 'text-red-400' : 'text-green-400')}>{insights?.urgency_score}/10</span>
+                     <span className={cn("text-xs font-black text-high-contrast", insights?.urgency_score && insights.urgency_score > 7 ? 'text-red-400' : 'text-green-400')}>{insights?.urgency_score}/10</span>
                    </div>
                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                      <motion.div initial={{ width: 0 }} animate={{ width: `${(insights?.urgency_score || 0) * 10}%` }} className={cn("h-full", insights?.urgency_score && insights.urgency_score > 7 ? 'bg-red-400' : 'bg-green-400')} />
@@ -168,9 +168,9 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ startDate, endDate, isUp
               </div>
 
               {/* Summary */}
-              <div className="bg-white/5 p-6 border border-white/10 rounded-2xl shadow-inner">
+              <div className="bg-white/[0.05] p-6 border border-white/10 rounded-2xl shadow-inner text-high-contrast">
                 <p className="text-[0.65rem] text-white/50 uppercase font-bold tracking-widest mb-3">Executive Summary</p>
-                <p className="text-[0.8rem] text-white/80 leading-relaxed font-light">{insights?.summary || 'Upload data to generate insights.'}</p>
+                <p className="text-[0.9rem] text-white/90 leading-relaxed font-light">{insights?.summary || 'Upload data to generate insights.'}</p>
               </div>
 
               {/* Issues and Auto Reply Grid */}
@@ -241,7 +241,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ startDate, endDate, isUp
               key={suggestion}
               onClick={() => setQuery(suggestion)}
               disabled={!isUploaded || isProcessing}
-              className="px-4 py-2 bg-white/10 border border-white/20 rounded-full text-[0.65rem] text-white/90 hover:text-white transition-all uppercase font-black tracking-widest shadow-sm disabled:cursor-not-allowed"
+              className="glass-pill px-4 py-2 text-[0.65rem] text-white/90 hover:text-white uppercase font-black tracking-widest disabled:cursor-not-allowed"
             >
               "{suggestion}"
             </motion.button>

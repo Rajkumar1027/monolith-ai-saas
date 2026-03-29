@@ -136,9 +136,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <nav className="bg-surface-container-lowest border-b border-outline-variant/15 fixed top-0 left-0 right-0 z-50">
-        <div className="flex justify-between items-center w-full px-8 h-16 max-w-7xl mx-auto">
+    <div className="min-h-screen flex flex-col relative">
+      {/* iOS 26 Liquid Glass Background Layer */}
+      <div className="liquid-glass-background">
+        <div className="liquid-glass-pulse liquid-glass-pulse-blue" />
+        <div className="liquid-glass-pulse liquid-glass-pulse-purple" />
+      </div>
+
+      <nav className="glass-nav fixed top-0 left-0 right-0 z-50">
+        <div className="flex justify-between items-center w-full px-8 h-18 max-w-7xl mx-auto">
           <div className="flex items-center gap-6">
             <div className="text-xl font-bold tracking-tighter text-primary font-headline cursor-pointer" onClick={() => setActiveTab('Feedback Analysis')}>MONOLITH</div>
             {['Profile', 'Settings'].includes(activeTab) && (
