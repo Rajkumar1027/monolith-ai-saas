@@ -152,28 +152,38 @@ async def register(user: dict):
         if db is None:
             raise HTTPException(status_code=503, detail="Database not connected")
         
-        username = user.get("username")
+        username = user.get("username") or user.get("name")
         email = user.get("email")
         password = user.get("password")
-
-        if not username or not password:
-            raise HTTPException(status_code=400, detail="Username and password are required")
-
-        existing_user = users_collection.find_one({"username": username})
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Username already registered")
         
-        hashed_password = hash_password(password)
-        new_user = {
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password required")
+        
+        # Fix: truncate password to 72 bytes max for bcrypt
+        password = password[:72]
+        
+        # Check if user already exists
+        existing = db.users.find_one({"email": email})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # Hash password
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        hashed = pwd_context.hash(password)
+        
+        # Save user
+        db.users.insert_one({
             "username": username,
             "email": email,
-            "password": hashed_password
-        }
-        users_collection.insert_one(new_user)
+            "password": hashed
+        })
+        
         print(f"✅ User registered: {email}")
         return {"message": "Registration successful"}
-    except HTTPException as he:
-        raise he
+        
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ REGISTRATION_ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
