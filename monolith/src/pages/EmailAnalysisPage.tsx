@@ -653,7 +653,8 @@ export const EmailAnalysisPage: React.FC = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-      className="max-w-7xl mx-auto px-6 py-12 space-y-12 relative overflow-hidden"
+      style={{ backgroundColor: '#000000' }}
+      className="min-h-screen max-w-7xl mx-auto px-6 py-12 space-y-12 relative overflow-hidden"
     >
       <div className="grid grid-cols-1 md:grid-cols-12 gap-[24px]">
       <Toaster position="bottom-right" theme="dark" />
@@ -691,10 +692,10 @@ export const EmailAnalysisPage: React.FC = () => {
           }}
           disabled={isConnecting}
           className={cn(
-            "px-8 py-3 font-medium text-sm flex items-center gap-2 transition-all rounded-sm",
+            "px-8 py-3 font-bold text-sm flex items-center gap-2 transition-all rounded-full",
             isConnected 
-              ? "bg-green-500/10 text-green-500 border border-green-500/20 cursor-default" 
-              : "bg-primary text-on-primary hover:bg-neutral-200"
+              ? "bg-green-500/20 text-green-400 border border-green-500/30 cursor-default backdrop-blur-md" 
+              : "bg-white text-black hover:scale-105 active:scale-95 shadow-[0_0_25px_rgba(255,255,255,0.4)]"
           )}
         >
           {isConnecting ? (
@@ -1001,7 +1002,7 @@ export const EmailAnalysisPage: React.FC = () => {
             </button>
           </motion.div>
         )}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto backdrop-blur-2xl bg-white/5 border border-white/10 rounded-2xl shadow-2xl p-6">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/10">
@@ -1658,7 +1659,7 @@ export const EmailAnalysisPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white/5 p-6 border border-white/10 space-y-4">
+          <div className="backdrop-blur-2xl bg-white/5 border border-white/10 rounded-2xl shadow-2xl p-8 space-y-6">
             <div className="flex justify-between items-center border-b border-white/5 pb-4">
               <div className="flex flex-col gap-1">
                 <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/40">Conversation Thread</p>
@@ -1688,7 +1689,12 @@ export const EmailAnalysisPage: React.FC = () => {
                 .sort((a, b) => a.id - b.id)
                 .map((msg) => (
                   <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}>
-                    <div className={`max-w-[85%] p-4 ${msg.sender === 'me' ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface'} border border-white/5 relative group/msg`}>
+                    <div className={cn(
+                      "max-w-[85%] p-4 rounded-2xl backdrop-blur-lg border relative group/msg transition-all",
+                      msg.sender === 'me' 
+                        ? 'bg-blue-600/20 border-white/20 text-white' 
+                        : 'bg-white/10 border-white/10 text-on-surface'
+                    )}>
                       <div className="absolute -left-1 top-4 w-0.5 h-8 bg-primary/40 opacity-0 group-hover/msg:opacity-100 transition-opacity" />
                       <div className="flex justify-between items-center mb-2 gap-4">
                         <span className="text-[9px] uppercase tracking-widest opacity-60 font-bold">{msg.sender}</span>
