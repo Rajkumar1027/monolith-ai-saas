@@ -8,25 +8,21 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tool
 import { Toaster, toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
 
-const emails: any[] = [];
+const initialEmails = [
+  { id: 1, threadId: 't1', sender: 'alex.v@monolith.ai', subject: 'Quarterly growth trajectory expectations', time: '14:20', sentiment: 'Positive', content: 'The **growth trajectory** for Q3 looks *promising*. We are seeing a **15% increase** in user retention.', read: false, labels: ['Urgent'] },
+  { id: 2, threadId: 't2', sender: 'support@cloud.sys', subject: 'Critical latency detected in Node-04', time: '11:05', sentiment: 'Negative', content: 'We are experiencing **severe latency issues** in Node-04. This is affecting *billing services* and causing timeouts for several enterprise clients.', read: true, labels: ['Follow-up'] },
+  { id: 4, threadId: 't2', sender: 'me', subject: 'Re: Critical latency detected in Node-04', time: '11:15', sentiment: 'Neutral', content: 'Acknowledged. I am looking into the **logs** now. Is this affecting *all regions*?', read: true, labels: [] },
+  { id: 5, threadId: 't2', sender: 'support@cloud.sys', subject: 'Re: Critical latency detected in Node-04', time: '11:20', sentiment: 'Negative', content: 'Yes, primarily **US-EAST-1** and **EU-WEST-1**. We need a resolution *ASAP* as SLAs are being breached.', read: false, labels: ['Urgent', 'Follow-up'] },
+  { id: 3, threadId: 't3', sender: 'billing@stripe.com', subject: 'Invoice #8841 available for review', time: '09:44', sentiment: 'Neutral', content: 'Your monthly invoice for **February** is now available in your dashboard. Please review it at your *earliest convenience*.', read: false, labels: [] },
+];
 
 export const EmailAnalysisPage: React.FC = () => {
-  const [emails, setEmails] = useState(emails);
+  const [emailList, setEmailList] = useState(initialEmails);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSentiment, setActiveSentiment] = useState<'All' | 'Positive' | 'Neutral' | 'Negative'>('All');
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [newLabelInput, setNewLabelInput] = useState('');
-  const [selectedEmail, setSelectedEmail] = useState<any>({
-  id: 0,
-  threadId: '',
-  sender: 'System',
-  subject: 'No Emails Found',
-  time: '',
-  sentiment: 'Neutral',
-  content: 'Connect your Gmail to begin analysis.',
-  read: true,
-  labels: []
-});
+  const [selectedEmail, setSelectedEmail] = useState(initialEmails[3]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [replyTone, setReplyTone] = useState<'Empathetic' | 'Formal' | 'Direct'>('Empathetic');
   const [threadSummary, setThreadSummary] = useState<string | null>(null);
@@ -96,7 +92,7 @@ export const EmailAnalysisPage: React.FC = () => {
     setSuggestedLabels([]);
     setIsSummarizing(true);
     try {
-      const threadMessages = emails
+      const threadMessages = emailList
         .filter(e => e.threadId === selectedEmail.threadId)
         .sort((a, b) => a.id - b.id);
       
@@ -159,7 +155,7 @@ export const EmailAnalysisPage: React.FC = () => {
     if (selectedIds.length === 0) return;
     setIsBatchLabeling(true);
     try {
-      const selectedEmails = emails.filter(e => selectedIds.includes(e.id));
+      const selectedEmails = emailList.filter(e => selectedIds.includes(e.id));
       const emailsContent = selectedEmails.map(e => `ID: ${e.id}\nFrom: ${e.sender}\nSubject: ${e.subject}\nContent: ${e.content}`).join('\n\n---\n\n');
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -175,7 +171,7 @@ export const EmailAnalysisPage: React.FC = () => {
 
       const suggestions = JSON.parse(response.text || '{}');
       
-      setEmails(prev => prev.map(email => {
+      setEmailList(prev => prev.map(email => {
         if (suggestions[email.id]) {
           const newLabels = Array.from(new Set([...(email.labels || []), ...suggestions[email.id]]));
           return { ...email, labels: newLabels };
@@ -220,7 +216,7 @@ export const EmailAnalysisPage: React.FC = () => {
 
   const handleApplySuggestedLabel = (e: React.MouseEvent, emailId: number, label: string) => {
     e.stopPropagation();
-    setEmails(prev => prev.map(email => {
+    setEmailList(prev => prev.map(email => {
       if (email.id === emailId) {
         const labels = email.labels || [];
         if (labels.includes(label)) {
@@ -247,7 +243,7 @@ export const EmailAnalysisPage: React.FC = () => {
     e.stopPropagation();
     if (threadId) {
       // Find all emails in this thread from the full list
-      const threadEmails = emails.filter(email => email.threadId === threadId).map(email => email.id);
+      const threadEmails = emailList.filter(email => email.threadId === threadId).map(email => email.id);
       const allSelected = threadEmails.every(tid => selectedIds.includes(tid));
       
       if (allSelected) {
@@ -264,8 +260,8 @@ export const EmailAnalysisPage: React.FC = () => {
 
   const handleBatchAction = (action: 'read' | 'unread' | 'delete' | 'tag' | 'archive' | 'clear-tags', label?: string) => {
     if (action === 'delete') {
-      const remainingEmails = emails.filter(e => !selectedIds.includes(e.id));
-      setEmails(remainingEmails);
+      const remainingEmails = emailList.filter(e => !selectedIds.includes(e.id));
+      setEmailList(remainingEmails);
       
       // If selected email was deleted, pick the first remaining one
       if (selectedIds.includes(selectedEmail.id)) {
@@ -290,7 +286,7 @@ export const EmailAnalysisPage: React.FC = () => {
       return;
     }
 
-    setEmails(prev => {
+    setEmailList(prev => {
       const newList = prev.map(email => {
         if (selectedIds.includes(email.id)) {
           if (action === 'read') return { ...email, read: true };
@@ -333,17 +329,17 @@ export const EmailAnalysisPage: React.FC = () => {
   const toggleRead = (e: React.MouseEvent, id: number, threadId?: string) => {
     e.stopPropagation();
     if (threadId) {
-      const threadEmails = emails.filter(email => email.threadId === threadId);
+      const threadEmails = emailList.filter(email => email.threadId === threadId);
       const allRead = threadEmails.every(email => email.read);
       
-      setEmails(prev => prev.map(email => {
+      setEmailList(prev => prev.map(email => {
         if (email.threadId === threadId) {
           return { ...email, read: !allRead };
         }
         return email;
       }));
     } else {
-      setEmails(prev => prev.map(email => 
+      setEmailList(prev => prev.map(email => 
         email.id === id ? { ...email, read: !email.read } : email
       ));
     }
@@ -380,7 +376,7 @@ export const EmailAnalysisPage: React.FC = () => {
     // Simulate sending
     setTimeout(() => {
       const newMessage = {
-        id: Math.max(...emails.map(e => e.id)) + 1,
+        id: Math.max(...emailList.map(e => e.id)) + 1,
         threadId: selectedEmail.threadId,
         sender: 'me',
         subject: `Re: ${selectedEmail.subject}`,
@@ -391,7 +387,7 @@ export const EmailAnalysisPage: React.FC = () => {
         labels: []
       };
 
-      setEmails(prev => [...prev, newMessage]);
+      setEmailList(prev => [...prev, newMessage]);
       
       // Clear draft
       setDrafts(prev => {
@@ -413,7 +409,7 @@ export const EmailAnalysisPage: React.FC = () => {
   const handleGenerateReply = async (customPrompt?: string) => {
     setIsGenerating(true);
     try {
-      const threadHistory = emails
+      const threadHistory = emailList
         .filter(e => e.threadId === selectedEmail.threadId)
         .sort((a, b) => a.id - b.id)
         .map(e => `${e.sender}: ${e.content}`)
@@ -489,7 +485,7 @@ export const EmailAnalysisPage: React.FC = () => {
   };
 
   const handleToggleLabel = (label: string) => {
-    setEmails(prev => prev.map(email => {
+    setEmailList(prev => prev.map(email => {
       if (email.id === selectedEmail.id) {
         const labels = email.labels || [];
         const newLabels = labels.includes(label)
@@ -542,7 +538,7 @@ export const EmailAnalysisPage: React.FC = () => {
           labels: ['Archive'] 
         },
       ];
-      setEmails(prev => [...prev, ...moreEmails]);
+      setEmailList(prev => [...prev, ...moreEmails]);
       toast.success('Loaded more communications', {
         className: 'bg-surface-container-highest border-white/10 text-white font-headline uppercase tracking-widest text-[10px]',
         icon: <MotionIcon><RefreshCcw size={14} className="text-primary" /></MotionIcon>
@@ -550,9 +546,9 @@ export const EmailAnalysisPage: React.FC = () => {
     }, 1500);
   };
 
-  const allLabels = Array.from(new Set(emails.flatMap(e => e.labels || [])));
+  const allLabels = Array.from(new Set(emailList.flatMap(e => e.labels || [])));
 
-  const filteredEmails = emails.filter(email => {
+  const filteredEmails = emailList.filter(email => {
     const matchesSearch = 
       email.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
       email.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -581,8 +577,8 @@ export const EmailAnalysisPage: React.FC = () => {
     const matchingThreadIds = new Set(filteredEmails.map(e => e.threadId));
     
     // 2. Group ALL emails from the full list by threadId, but only for matching threads
-    const groups: Record<string, typeof emails> = {};
-    emails.forEach(email => {
+    const groups: Record<string, typeof emailList> = {};
+    emailList.forEach(email => {
       if (matchingThreadIds.has(email.threadId)) {
         if (!groups[email.threadId]) groups[email.threadId] = [];
         groups[email.threadId].push(email);
@@ -650,15 +646,16 @@ export const EmailAnalysisPage: React.FC = () => {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [emails, filteredEmails, sortKey, sortOrder]);
+  }, [emailList, filteredEmails, sortKey, sortOrder]);
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-      className="max-w-4xl mx-auto px-6 space-y-24 monolith-grid relative"
+      className="max-w-7xl mx-auto px-6 py-12 space-y-12 relative overflow-hidden"
     >
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-[24px]">
       <Toaster position="bottom-right" theme="dark" />
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
       <div className="absolute top-0 left-0 p-4 opacity-10 pointer-events-none z-0">
@@ -720,7 +717,7 @@ export const EmailAnalysisPage: React.FC = () => {
             placeholder="Search communications by sender, subject, or content..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-surface-container-low border border-white/10 pl-16 pr-16 py-6 text-lg font-headline focus:outline-none focus:border-primary/40 transition-all placeholder:text-on-surface-variant/50 shadow-2xl rounded-sm"
+            className="w-full glass-panel pl-16 pr-16 py-6 text-lg font-headline focus:outline-none focus:border-primary/40 transition-all placeholder:text-on-surface-variant/50 shadow-2xl rounded-2xl"
           />
           {searchTerm && (
             <button 
@@ -752,14 +749,13 @@ export const EmailAnalysisPage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
-              whileHover={{ y: -4, backgroundColor: "rgba(255, 255, 255, 0.05)", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}
-              className="bg-surface-container p-8 border-l border-white/10 group cursor-pointer transition-all duration-500 backdrop-blur-xl bg-white/5 rounded-2xl"
+              className="glass-panel p-8 group cursor-pointer lg:col-span-4"
             >
               <div className="flex justify-between items-start mb-6">
-                <span className="text-xs tracking-[0.2em] text-on-surface-variant/70 uppercase">{stat.label}</span>
+                <span className="text-xs tracking-[0.2em] text-white/50 uppercase font-bold">{stat.label}</span>
                 <MotionIcon><stat.icon size={14} className="text-primary/70 group-hover:text-primary transition-colors" /></MotionIcon>
               </div>
-              <div className="text-5xl font-headline font-bold group-hover:text-primary transition-colors">{stat.value}</div>
+              <div className="text-5xl font-headline font-bold text-high-contrast group-hover:text-primary transition-colors">{stat.value}</div>
             </motion.div>
           ))}
         </div>
@@ -1005,18 +1001,12 @@ export const EmailAnalysisPage: React.FC = () => {
             </button>
           </motion.div>
         )}
-        {emails.length === 0 && (
-  <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-12 text-center mb-8">
-    <p className="text-white/60 text-lg">No active email stream.</p>
-    <p className="text-white/40 text-sm mt-2">Connect your Gmail to begin analysis.</p>
-  </div>
-)}
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/10">
                 <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase w-12">
-                  <button onClick={toggleSelectAll} className="text-on-surface-variant/50 hover:text-primary transition-colors backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">
+                  <button onClick={toggleSelectAll} className="text-on-surface-variant/50 hover:text-primary transition-colors">
                     {selectedIds.length === filteredEmails.length && filteredEmails.length > 0 ? <MotionIcon><CircleCheck size={16} className="text-primary" /></MotionIcon> : <MotionIcon><Circle size={16} /></MotionIcon>}
                   </button>
                 </th>
@@ -1407,7 +1397,7 @@ export const EmailAnalysisPage: React.FC = () => {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, delay: 0.1, ease: [0.23, 1, 0.32, 1] }}
-        className="bg-surface-container-low p-12 space-y-6 mb-24 backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl"
+        className="bg-surface-container-low p-12 border border-white/5 space-y-6 mb-24"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1426,7 +1416,7 @@ export const EmailAnalysisPage: React.FC = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-                className="md:col-span-2 bg-primary/5 border-l-2 border-primary p-4 relative overflow-hidden backdrop-blur-xl border border-white/10 bg-white/5 rounded-2xl"
+                className="md:col-span-2 bg-primary/5 border-l-2 border-primary p-4 relative overflow-hidden"
               >
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
                 <div className="flex items-center gap-2 mb-1">
@@ -1439,7 +1429,7 @@ export const EmailAnalysisPage: React.FC = () => {
             {urgencyScore !== null && (
               <motion.div 
                 whileHover={{ y: -4, scale: 1.02, boxShadow: "0 10px 20px rgba(0,0,0,0.2)" }}
-                className="bg-white/5 border border-white/10 p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300 backdrop-blur-xl rounded-2xl"
+                className="bg-white/5 border border-white/10 p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300"
               >
                 <div className="absolute top-0 right-0 p-2 opacity-10">
                   <div className="w-12 h-12 border-t border-r border-white"></div>
@@ -1471,7 +1461,7 @@ export const EmailAnalysisPage: React.FC = () => {
           </div>
 
           {sentimentDrift.length > 0 && (
-            <div className="bg-white/5 border border-white/10 p-6 space-y-6 backdrop-blur-xl rounded-2xl">
+            <div className="bg-white/5 border border-white/10 p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MotionIcon><TrendingUp size={14} className="text-primary" /></MotionIcon>
@@ -1619,7 +1609,7 @@ export const EmailAnalysisPage: React.FC = () => {
                   onChange={(e) => setNewLabelInput(e.target.value)}
                   className="bg-transparent border-b border-white/10 text-[10px] uppercase tracking-widest py-1 px-2 focus:outline-none focus:border-primary transition-colors w-24"
                 />
-                <button type="submit" className="p-1 text-on-surface-variant/40 hover:text-primary transition-colors backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">
+                <button type="submit" className="p-1 text-on-surface-variant/40 hover:text-primary transition-colors">
                   <MotionIcon><Plus size={14} /></MotionIcon>
                 </button>
               </form>
@@ -1653,7 +1643,7 @@ export const EmailAnalysisPage: React.FC = () => {
                   })}
                   <button 
                     onClick={handleApplyAllSuggestions}
-                    className="ml-2 text-[8px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors underline underline-offset-4 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
+                    className="ml-2 text-[8px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors underline underline-offset-4"
                   >
                     Apply All
                   </button>
@@ -1662,13 +1652,13 @@ export const EmailAnalysisPage: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">Escalate</button>
-              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">Schedule</button>
-              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">Archive</button>
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Escalate</button>
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Schedule</button>
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Archive</button>
             </div>
           </div>
 
-          <div className="bg-white/5 p-3 gap-2 flex flex-col border border-white/10">
+          <div className="bg-white/5 p-6 border border-white/10 space-y-4">
             <div className="flex justify-between items-center border-b border-white/5 pb-4">
               <div className="flex flex-col gap-1">
                 <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/40">Conversation Thread</p>
@@ -1693,7 +1683,7 @@ export const EmailAnalysisPage: React.FC = () => {
             </div>
             
             <div className="space-y-6 max-h-[300px] overflow-y-auto pr-2 hide-scrollbar">
-              {emails
+              {emailList
                 .filter(e => e.threadId === selectedEmail.threadId)
                 .sort((a, b) => a.id - b.id)
                 .map((msg) => (
@@ -1964,7 +1954,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileTap={{ scale: 0.95 }}
                           onClick={handleImproveReply}
                           disabled={isImproving}
-                          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
+                          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50"
                         >
                           {isImproving ? <MotionIcon><Loader2 size={12} className="animate-spin" /></MotionIcon> : <MotionIcon><Sparkles size={12} /></MotionIcon>}
                           Improve
@@ -1982,7 +1972,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={handleCopyToClipboard}
-                          className="flex items-center gap-2 px-4 py-2 bg-white/5 text-on-surface-variant/60 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
+                          className="flex items-center gap-2 px-4 py-2 bg-white/5 text-on-surface-variant/60 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"
                         >
                           <MotionIcon><Copy size={12} /></MotionIcon>
                           Copy
@@ -1998,7 +1988,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={handleDiscardDraft}
-                          className="text-[10px] uppercase tracking-widest text-on-surface-variant/40 hover:text-red-500 transition-colors backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
+                          className="text-[10px] uppercase tracking-widest text-on-surface-variant/40 hover:text-red-500 transition-colors"
                         >
                           Discard
                         </motion.button>
@@ -2006,7 +1996,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={handleSaveDraft}
-                          className="flex items-center gap-2 px-6 py-3 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
+                          className="flex items-center gap-2 px-6 py-3 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all"
                         >
                           {saveStatus === 'saving' ? <MotionIcon><Loader2 size={12} className="animate-spin" /></MotionIcon> : 
                            saveStatus === 'saved' ? <MotionIcon><CheckCircle size={12} className="text-green-500" /></MotionIcon> : <MotionIcon><Edit3 size={12} /></MotionIcon>} 
@@ -2017,7 +2007,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileTap={{ scale: 0.95 }}
                           onClick={handleSendReply}
                           disabled={isSending}
-                          className="flex items-center gap-2 px-10 py-3 bg-primary text-on-primary text-[10px] uppercase tracking-widest font-black hover:bg-neutral-200 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)] backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
+                          className="flex items-center gap-2 px-10 py-3 bg-primary text-on-primary text-[10px] uppercase tracking-widest font-black hover:bg-neutral-200 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)]"
                         >
                           {isSending ? <MotionIcon><Loader2 size={14} className="animate-spin" /></MotionIcon> : <MotionIcon><Send size={14} /></MotionIcon>}
                           Send Response
@@ -2029,7 +2019,7 @@ export const EmailAnalysisPage: React.FC = () => {
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleGenerateReply()}
                         disabled={isGenerating || selectedEmail.sentiment !== 'Negative'}
-                        className="backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 transition-all duration-200 rounded-full px-6 py-3 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="group relative flex items-center gap-3 px-12 py-4 bg-white text-black text-[11px] uppercase tracking-[0.3em] font-black hover:bg-neutral-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed overflow-hidden"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/20 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                         {isGenerating ? <MotionIcon><Loader2 size={16} className="animate-spin" /></MotionIcon> : <MotionIcon><Sparkles size={16} /></MotionIcon>}
@@ -2043,6 +2033,7 @@ export const EmailAnalysisPage: React.FC = () => {
           </motion.div>
         </div>
       </motion.section>
+      </div>
     </motion.div>
   );
 };
