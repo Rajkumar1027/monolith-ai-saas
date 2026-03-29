@@ -649,245 +649,1390 @@ export const EmailAnalysisPage: React.FC = () => {
   }, [emailList, filteredEmails, sortKey, sortOrder]);
 
   return (
-    <div className="min-h-screen p-6 space-y-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+      className="max-w-4xl mx-auto px-6 space-y-24 monolith-grid relative"
+    >
       <Toaster position="bottom-right" theme="dark" />
-
-      {/* Row 1 - Header + Connect Gmail Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center glass-panel p-8 rounded-2xl border border-white/10 bg-white/5">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
+      <div className="absolute top-0 left-0 p-4 opacity-10 pointer-events-none z-0">
+        <div className="text-[8px] font-mono leading-tight">
+          SYS_MONOLITH_v2.4.1<br/>
+          STATUS: OPERATIONAL<br/>
+          CORE_TEMP: 34.2°C<br/>
+          ENCRYPTION: AES-256
+        </div>
+      </div>
+      
+      <motion.section 
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.6, delay: 0.1, ease: [0.23, 1, 0.32, 1] }}
+        className="flex flex-col md:flex-row justify-between items-end gap-8 border-b border-white/10 pb-12 pt-12"
+      >
         <div>
-          <h1 className="font-headline text-5xl font-extrabold tracking-tighter mb-4 break-words whitespace-normal text-white">Email <span className="text-white/40">Analysis</span></h1>
-          <p className="text-on-surface-variant max-w-md break-words whitespace-normal leading-relaxed font-light">
-            Real-time processing of inbound communications using monolithic sentiment architecture.
-          </p>
+          <h1 className="font-headline text-5xl font-extrabold tracking-tighter mb-4">Email Analysis</h1>
+          <p className="text-on-surface-variant max-w-md">Real-time processing of inbound communications using monolithic sentiment architecture.</p>
         </div>
-        <div className="flex justify-end">
-          <motion.button 
-            whileHover={{ scale: 1.05, boxShadow: "0 0 20px rgba(255,255,255,0.1)" }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              if (isConnected) return;
-              setIsConnecting(true);
-              setTimeout(() => {
-                setIsConnecting(false);
-                setIsConnected(true);
-                toast.success('Gmail connection verified');
-              }, 2000);
-            }}
-            disabled={isConnecting}
-            className={cn(
-              "px-8 py-4 font-black text-xs uppercase tracking-widest flex items-center gap-3 transition-all rounded-full border border-white/20",
-              isConnected 
-                ? "bg-green-500/10 text-green-400 border-green-500/20 cursor-default" 
-                : "bg-white text-black hover:bg-neutral-200"
-            )}
-          >
-            {isConnecting ? (
-              <MotionIcon><Loader2 size={18} className="animate-spin" /></MotionIcon>
-            ) : isConnected ? (
-              <MotionIcon><CheckCircle size={18} /></MotionIcon>
-            ) : (
-              <MotionIcon><Mail size={18} /></MotionIcon>
-            )}
-            {isConnecting ? 'Connecting...' : isConnected ? 'Gmail Connected' : 'Connect Gmail Account'}
-          </motion.button>
-        </div>
-      </div>
+        <motion.button 
+          whileHover={{ scale: 1.05, boxShadow: "0 0 20px rgba(255,255,255,0.1)" }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            if (isConnected) return;
+            setIsConnecting(true);
+            setTimeout(() => {
+              setIsConnecting(false);
+              setIsConnected(true);
+            }, 2000);
+          }}
+          disabled={isConnecting}
+          className={cn(
+            "px-8 py-3 font-medium text-sm flex items-center gap-2 transition-all rounded-sm",
+            isConnected 
+              ? "bg-green-500/10 text-green-500 border border-green-500/20 cursor-default" 
+              : "bg-primary text-on-primary hover:bg-neutral-200"
+          )}
+        >
+          {isConnecting ? (
+            <MotionIcon><Loader2 size={18} className="animate-spin" /></MotionIcon>
+          ) : isConnected ? (
+            <MotionIcon><CheckCircle size={18} /></MotionIcon>
+          ) : (
+            <MotionIcon><Mail size={18} /></MotionIcon>
+          )}
+          {isConnecting ? 'Connecting...' : isConnected ? 'Gmail Connected' : 'Connect Gmail'}
+        </motion.button>
+      </motion.section>
 
-      {/* Row 2 - Mail List + Detail Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
-        {/* Left Side: Email List */}
-        <div className="lg:col-span-4 flex flex-col space-y-6">
-          <div className="relative w-full group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-transparent blur opacity-25 group-focus-within:opacity-100 transition duration-1000 group-focus-within:duration-200"></div>
-            <div className="relative">
-              <MotionIcon className="absolute left-6 top-1/2 -translate-y-1/2"><Search size={20} className="text-on-surface-variant/70 group-focus-within:text-white transition-colors" /></MotionIcon>
-              <input 
-                type="text"
-                placeholder="Search communications..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full glass-panel pl-16 pr-6 py-6 text-lg font-headline focus:outline-none focus:border-white/20 transition-all placeholder:text-white/20 shadow-2xl rounded-2xl bg-white/5 border border-white/10"
-              />
-            </div>
-          </div>
-
-          <div className="glass-panel flex-1 flex flex-col min-h-[500px] overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-              <span className="text-[0.65rem] uppercase tracking-widest font-black text-white/50">{filteredEmails.length} COMMUNICATIONS</span>
-              <div className="flex gap-2">
-                <button onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-                  <MotionIcon><ArrowUpDown size={14} className={cn("text-white/40", sortOrder === 'asc' ? "text-white" : "")} /></MotionIcon>
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
-              {groupedThreads.map((thread) => (
-                <motion.div 
-                  key={thread.threadId}
-                  onClick={() => setSelectedEmail(thread.latestEmail)}
-                  className={cn(
-                    "p-4 rounded-xl cursor-pointer transition-all border border-transparent hover:bg-white/5 hover:border-white/10",
-                    selectedEmail?.threadId === thread.threadId ? "bg-white/10 border-white/20 shadow-lg" : "bg-transparent"
-                  )}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[0.6rem] uppercase tracking-widest font-black text-white/80 break-words whitespace-normal">{thread.latestEmail.sender}</span>
-                    <span className="text-[0.55rem] font-mono text-white/40">{thread.latestEmail.time}</span>
-                  </div>
-                  <h4 className="text-[0.75rem] font-bold text-white mb-2 break-words whitespace-normal leading-tight">{thread.latestEmail.subject}</h4>
-                  <p className="text-[0.65rem] text-white/50 line-clamp-2 break-words whitespace-normal leading-relaxed">{thread.latestEmail.content.replace(/\*\*/g, '')}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Detail View */}
-        <div className="lg:col-span-8 flex flex-col space-y-6">
-          <div className="glass-panel flex-1 min-h-[500px] overflow-hidden flex flex-col rounded-2xl border border-white/10 bg-white/5 p-8">
-            {selectedEmail ? (
-              <>
-                <div className="flex justify-between items-start border-b border-white/10 pb-8 mb-8">
-                  <div>
-                    <h2 className="text-2xl font-black text-white mb-2 break-words whitespace-normal">{selectedEmail.subject}</h2>
-                    <div className="flex items-center gap-4 text-white/60">
-                      <span className="text-[0.65rem] uppercase tracking-widest font-black">{selectedEmail.sender}</span>
-                      <span className="w-1 h-1 rounded-full bg-white/20"></span>
-                      <span className="text-[0.65rem] font-mono">{selectedEmail.time}</span>
-                    </div>
-                  </div>
-                  <div className={cn(
-                    "px-4 py-1 rounded-full text-[0.65rem] uppercase tracking-widest font-black border",
-                    selectedEmail.sentiment === 'Positive' ? "bg-green-500/10 text-green-400 border-green-500/20" : 
-                    selectedEmail.sentiment === 'Negative' ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-white/5 text-white/50 border-white/10"
-                  )}>
-                    {selectedEmail.sentiment}
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-8 mb-8">
-                  <div className="prose prose-invert max-w-none">
-                    <div className="text-lg text-white/90 leading-relaxed font-light break-words whitespace-normal">
-                      <ReactMarkdown>
-                        {selectedEmail.content}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center opacity-20">
-                <Mail size={64} className="mb-6" />
-                <p className="uppercase tracking-[0.5em] text-[0.8rem] font-black">Select Communication</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Row 3 - AI Reply Feature Row */}
-      <div className="glass-panel p-8 w-full border border-white/10 bg-white/5 rounded-2xl flex flex-col space-y-8">
-        <div className="flex justify-between items-center border-b border-white/10 pb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <Sparkles size={18} className="text-white" />
-            </div>
-            <div>
-              <h3 className="text-[0.75rem] uppercase tracking-widest font-black text-white">Synthetic Response Intelligence</h3>
-              <p className="text-[0.6rem] text-white/40 uppercase tracking-[0.2em] mt-1 font-medium">Neural Generation v4.0</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-             <div className="flex flex-col gap-2">
-                <span className="text-[0.5rem] uppercase tracking-widest text-white/40 font-bold">MODE</span>
-                <div className="flex bg-white/5 p-1 rounded-lg border border-white/10">
-                  {['Empathetic', 'Formal', 'Direct'].map(t => (
-                    <button 
-                      key={t}
-                      onClick={() => setReplyTone(t as any)}
-                      className={cn(
-                        "px-4 py-1 text-[0.6rem] font-black uppercase tracking-widest rounded-md transition-all",
-                        replyTone === t ? "bg-white text-black" : "text-white/40 hover:text-white"
-                      )}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-             </div>
-             <div className="flex flex-col gap-2">
-                <span className="text-[0.5rem] uppercase tracking-widest text-white/40 font-bold">LENGTH</span>
-                <div className="flex bg-white/5 p-1 rounded-lg border border-white/10">
-                  {['Short', 'Medium', 'Detailed'].map(l => (
-                    <button 
-                      key={l}
-                      onClick={() => setReplyLength(l as any)}
-                      className={cn(
-                        "px-4 py-1 text-[0.6rem] font-black uppercase tracking-widest rounded-md transition-all",
-                        replyLength === l ? "bg-white text-black" : "text-white/40 hover:text-white"
-                      )}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-             </div>
-          </div>
-        </div>
-
-        <div className="relative group">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-white/20 to-transparent blur opacity-0 group-focus-within:opacity-100 transition duration-1000"></div>
-          <textarea 
-            value={generatedReply}
-            onChange={(e) => setGeneratedReply(e.target.value)}
-            placeholder="Neural engine ready. Generate reply or type custom instruction..."
-            className="w-full min-h-[250px] bg-black/40 border border-white/10 rounded-xl p-8 focus:outline-none focus:border-white/20 text-white font-light text-lg leading-relaxed custom-scrollbar placeholder:text-white/10 transition-all resize-none italic"
+      <div className="relative w-full group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-transparent blur opacity-25 group-focus-within:opacity-100 transition duration-1000 group-focus-within:duration-200"></div>
+        <div className="relative">
+          <MotionIcon className="absolute left-6 top-1/2 -translate-y-1/2"><Search size={20} className="text-on-surface-variant/70 group-focus-within:text-primary transition-colors" /></MotionIcon>
+          <input 
+            type="text"
+            placeholder="Search communications by sender, subject, or content..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-surface-container-low border border-white/10 pl-16 pr-16 py-6 text-lg font-headline focus:outline-none focus:border-primary/40 transition-all placeholder:text-on-surface-variant/50 shadow-2xl rounded-sm"
           />
-        </div>
-
-        <div className="flex justify-between items-center">
-          <div className="flex gap-4">
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleGenerateReply()}
-              disabled={isGenerating}
-              className="px-10 py-4 bg-white text-black text-[0.7rem] uppercase tracking-[0.2em] font-black hover:bg-neutral-200 transition-all disabled:opacity-30 rounded-full flex items-center gap-3"
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')}
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-on-surface-variant/70 hover:text-primary transition-colors"
             >
-              {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-              {generatedReply ? "Regenerate" : "Generate Neural Reply"}
-            </motion.button>
-            {generatedReply && (
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleImproveReply}
-                disabled={isImproving}
-                className="px-8 py-4 border border-white/20 text-white text-[0.7rem] uppercase tracking-[0.2em] font-black hover:bg-white/5 transition-all rounded-full flex items-center gap-3"
-              >
-                {isImproving ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                Improve
-              </motion.button>
-            )}
-          </div>
-          {generatedReply && (
-            <div className="flex items-center gap-6">
-              <button onClick={handleDiscardDraft} className="text-[0.6rem] uppercase tracking-widest text-white/30 hover:text-red-400 transition-colors font-bold">DISCARD DRAFT</button>
-              <motion.button 
-                whileHover={{ scale: 1.05, x: 5 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleSendReply}
-                disabled={isSending}
-                className="px-12 py-4 bg-white/10 border border-white/20 text-white text-[0.7rem] uppercase tracking-[0.25em] font-black hover:bg-white/20 transition-all rounded-full flex items-center gap-4"
-              >
-                {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                Send Response
-              </motion.button>
-            </div>
+              <MotionIcon><X size={20} /></MotionIcon>
+            </button>
           )}
         </div>
       </div>
-    </div>
+
+      <motion.section 
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.6, delay: 0.1, ease: [0.23, 1, 0.32, 1] }}
+        className="space-y-10"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+          {[
+            { label: 'Positive %', value: '72.4', icon: CheckCircle },
+            { label: 'Neutral %', value: '18.1', icon: CheckCircle },
+            { label: 'Negative %', value: '09.5', icon: CheckCircle },
+          ].map((stat, i) => (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
+              whileHover={{ y: -4, backgroundColor: "rgba(255, 255, 255, 0.05)", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}
+              className="bg-surface-container p-8 border-l border-white/10 group cursor-pointer transition-all duration-500"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <span className="text-xs tracking-[0.2em] text-on-surface-variant/70 uppercase">{stat.label}</span>
+                <MotionIcon><stat.icon size={14} className="text-primary/70 group-hover:text-primary transition-colors" /></MotionIcon>
+              </div>
+              <div className="text-5xl font-headline font-bold group-hover:text-primary transition-colors">{stat.value}</div>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="flex flex-col md:flex-row justify-between items-center border-b border-white/5 gap-6">
+          <div className="flex flex-wrap gap-x-12 gap-y-4 overflow-x-auto pb-4 md:pb-0 hide-scrollbar w-full md:w-auto">
+            <div className="flex gap-8">
+              {['All', 'Positive', 'Neutral', 'Negative'].map((sentiment) => (
+                <button 
+                  key={sentiment}
+                  onClick={() => setActiveSentiment(sentiment as any)}
+                  className={`pb-4 text-[10px] tracking-widest transition-colors uppercase whitespace-nowrap border-b-2 ${
+                    activeSentiment === sentiment 
+                      ? 'border-primary text-primary' 
+                      : 'border-transparent text-on-surface-variant/70 hover:text-primary'
+                  }`}
+                >
+                  {sentiment === 'All' ? 'All Mail' : sentiment}
+                </button>
+              ))}
+            </div>
+            <div className="hidden md:block w-px h-4 bg-white/10 self-center"></div>
+            <div className="flex gap-8">
+              {['All', 'Read', 'Unread'].map((status) => (
+                <button 
+                  key={status}
+                  onClick={() => setReadFilter(status as any)}
+                  className={`pb-4 text-[10px] tracking-widest transition-colors uppercase whitespace-nowrap border-b-2 flex items-center gap-2 ${
+                    readFilter === status 
+                      ? 'border-primary text-primary' 
+                      : 'border-transparent text-on-surface-variant/70 hover:text-primary'
+                  }`}
+                >
+                  {status === 'Read' && <MotionIcon><CircleCheck size={10} className={readFilter === 'Read' ? 'text-primary' : 'opacity-70'} /></MotionIcon>}
+                  {status === 'Unread' && <MotionIcon><Circle size={10} className={readFilter === 'Unread' ? 'text-primary' : 'opacity-70'} /></MotionIcon>}
+                  {status === 'All' && <MotionIcon><Mail size={10} className={readFilter === 'All' ? 'text-primary' : 'opacity-70'} /></MotionIcon>}
+                  {status}
+                </button>
+              ))}
+            </div>
+            <div className="hidden md:block w-px h-4 bg-white/10 self-center"></div>
+            <div className="flex gap-8">
+              {['All', 'Has Draft', 'No Draft'].map((status) => (
+                <button 
+                  key={status}
+                  onClick={() => setDraftFilter(status as any)}
+                  className={`pb-4 text-[10px] tracking-widest transition-colors uppercase whitespace-nowrap border-b-2 flex items-center gap-2 ${
+                    draftFilter === status 
+                      ? 'border-primary text-primary' 
+                      : 'border-transparent text-on-surface-variant/70 hover:text-primary'
+                  }`}
+                >
+                  {status === 'Has Draft' && <MotionIcon><FileText size={10} className={draftFilter === 'Has Draft' ? 'text-primary' : 'opacity-70'} /></MotionIcon>}
+                  {status === 'No Draft' && <MotionIcon><FileText size={10} className={draftFilter === 'No Draft' ? 'opacity-40' : 'opacity-40'} /></MotionIcon>}
+                  {status === 'All' && <MotionIcon><Mail size={10} className={draftFilter === 'All' ? 'text-primary' : 'opacity-70'} /></MotionIcon>}
+                  {status}
+                </button>
+              ))}
+            </div>
+            <div className="hidden md:block w-px h-4 bg-white/10 self-center"></div>
+            <div className="flex gap-8">
+              <button 
+                onClick={() => setExpandedThreads(new Set(groupedThreads.map(t => t.threadId)))}
+                className="pb-4 text-[10px] tracking-widest transition-colors uppercase whitespace-nowrap border-b-2 border-transparent text-on-surface-variant/70 hover:text-primary"
+              >
+                Expand All
+              </button>
+              <button 
+                onClick={() => setExpandedThreads(new Set())}
+                className="pb-4 text-[10px] tracking-widest transition-colors uppercase whitespace-nowrap border-b-2 border-transparent text-on-surface-variant/70 hover:text-primary"
+              >
+                Collapse All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {allLabels.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-2 items-center">
+            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/70 self-center mr-2">Filter Labels:</span>
+            {allLabels.map((label, index) => (
+              <motion.button
+                key={label}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.03 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSelectedLabels(prev => 
+                  prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
+                )}
+                className={`px-3 py-1 text-[10px] uppercase tracking-widest border transition-all flex items-center gap-1.5 ${
+                  selectedLabels.includes(label)
+                    ? 'bg-primary text-on-primary border-primary'
+                    : 'bg-white/5 text-on-surface-variant/80 border-white/10 hover:border-white/30'
+                }`}
+              >
+                <MotionIcon><Tag size={10} /></MotionIcon>
+                {label}
+              </motion.button>
+            ))}
+            {(selectedLabels.length > 0 || activeSentiment !== 'All' || searchTerm !== '' || readFilter !== 'All' || draftFilter !== 'All') && (
+              <button 
+                onClick={() => {
+                  setSelectedLabels([]);
+                  setActiveSentiment('All');
+                  setSearchTerm('');
+                  setReadFilter('All');
+                  setDraftFilter('All');
+                }}
+                className="text-[10px] uppercase tracking-widest text-primary hover:underline ml-4 flex items-center gap-1"
+              >
+                <MotionIcon><X size={10} /></MotionIcon>
+                Reset All Filters
+              </button>
+            )}
+          </div>
+        )}
+      </motion.section>
+
+      <section className="space-y-8">
+        {selectedIds.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="flex flex-col md:flex-row items-center justify-between bg-primary/5 border border-primary/20 p-4 rounded-sm gap-4 sticky top-4 z-40 backdrop-blur-md"
+          >
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary">{selectedIds.length} Items Selected</span>
+                <button 
+                  onClick={() => setSelectedIds([])}
+                  className="text-[9px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors"
+                >
+                  (Clear)
+                </button>
+              </div>
+              <div className="hidden md:block h-4 w-px bg-primary/20"></div>
+              <div className="flex flex-wrap gap-4">
+                <button onClick={() => handleBatchAction('read')} className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 hover:text-primary transition-colors">Mark Read</button>
+                <button onClick={() => handleBatchAction('unread')} className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 hover:text-primary transition-colors">Mark Unread</button>
+                <button onClick={() => handleBatchAutoLabel()} disabled={isBatchLabeling} className="text-[9px] uppercase tracking-widest text-primary font-black flex items-center gap-1.5 hover:opacity-80 transition-all disabled:opacity-50">
+                  {isBatchLabeling ? <MotionIcon><Loader2 size={10} className="animate-spin" /></MotionIcon> : <MotionIcon><Sparkles size={10} /></MotionIcon>}
+                  AI Auto-Label
+                </button>
+                <button onClick={() => handleBatchAction('archive')} className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 hover:text-primary transition-colors">Archive</button>
+                <button onClick={() => handleBatchAction('delete')} className="text-[9px] uppercase tracking-widest text-red-500/60 hover:text-red-500 transition-colors">Delete</button>
+              </div>
+              <div className="hidden md:block h-4 w-px bg-primary/20"></div>
+              <div className="relative" ref={batchTagRef}>
+                <button 
+                  onClick={() => setIsBatchTagging(!isBatchTagging)}
+                  className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors"
+                >
+                  <MotionIcon><Tag size={12} /></MotionIcon>
+                  Batch Tag
+                  <MotionIcon><ChevronDown size={10} className={cn("transition-transform", isBatchTagging && "rotate-180")} /></MotionIcon>
+                </button>
+                
+                {isBatchTagging && (
+                  <div className="absolute top-full left-0 mt-2 w-56 bg-surface-container-low border border-white/10 shadow-2xl z-50 p-4 rounded-sm animate-in fade-in slide-in-from-top-2">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <p className="text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold">Manage Tags</p>
+                        <button onClick={() => setIsBatchTagging(false)} className="text-on-surface-variant/20 hover:text-red-500 transition-colors">
+                          <MotionIcon><X size={10} /></MotionIcon>
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold mb-2">Existing Labels</p>
+                        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
+                          {allLabels.length > 0 ? (
+                            allLabels.map(label => (
+                              <button 
+                                key={label}
+                                onClick={() => {
+                                  handleBatchAction('tag', label);
+                                }}
+                                className="px-2 py-0.5 border border-white/10 text-[8px] uppercase tracking-widest hover:border-primary/40 hover:text-primary transition-all rounded-sm whitespace-nowrap"
+                              >
+                                {label}
+                              </button>
+                            ))
+                          ) : (
+                            <p className="text-[8px] text-on-surface-variant/20 italic">No labels found</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="pt-2 border-t border-white/5 space-y-3">
+                        <div>
+                          <p className="text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold mb-2">Create New</p>
+                          <div className="flex gap-1">
+                            <input 
+                              type="text"
+                              placeholder="New tag..."
+                              value={batchTagInput}
+                              onChange={(e) => setBatchTagInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && batchTagInput.trim()) {
+                                  handleBatchAction('tag', batchTagInput.trim());
+                                  setBatchTagInput('');
+                                }
+                              }}
+                              className="flex-1 bg-white/5 border border-white/10 px-2 py-1 text-[9px] outline-none focus:border-primary/40 transition-all rounded-sm"
+                            />
+                            <button 
+                              onClick={() => {
+                                if (batchTagInput.trim()) {
+                                  handleBatchAction('tag', batchTagInput.trim());
+                                  setBatchTagInput('');
+                                }
+                              }}
+                              className="bg-primary text-on-primary p-1 rounded-sm hover:bg-neutral-200 transition-colors"
+                            >
+                            <MotionIcon><Plus size={10} /></MotionIcon>
+                            </button>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={() => {
+                            handleBatchAction('clear-tags');
+                            setIsBatchTagging(false);
+                          }}
+                          className="w-full py-1.5 border border-red-500/20 text-red-500/60 hover:bg-red-500/5 hover:text-red-500 text-[8px] uppercase tracking-widest transition-all rounded-sm"
+                        >
+                          Clear All Tags
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button onClick={() => {
+              setSelectedIds([]);
+              setIsBatchTagging(false);
+            }} className="text-on-surface-variant/40 hover:text-primary transition-colors">
+              <MotionIcon><X size={14} /></MotionIcon>
+            </button>
+          </motion.div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase w-12">
+                  <button onClick={toggleSelectAll} className="text-on-surface-variant/50 hover:text-primary transition-colors">
+                    {selectedIds.length === filteredEmails.length && filteredEmails.length > 0 ? <MotionIcon><CircleCheck size={16} className="text-primary" /></MotionIcon> : <MotionIcon><Circle size={16} /></MotionIcon>}
+                  </button>
+                </th>
+                <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase w-12">
+                  <button onClick={() => handleSort('read')} className="flex items-center gap-1 hover:text-primary transition-colors uppercase tracking-[0.3em]">
+                    <MotionIcon><ArrowUpDown size={10} className="opacity-50" /></MotionIcon>
+                  </button>
+                </th>
+                <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase w-1/4">
+                  <button onClick={() => handleSort('sender')} className="flex items-center gap-2 hover:text-primary transition-colors uppercase tracking-[0.3em] group/th">
+                    Sender
+                    <div className="flex flex-col -space-y-1 opacity-0 group-hover/th:opacity-100 transition-opacity">
+                      <ChevronUp size={8} className={cn(sortKey === 'sender' && sortOrder === 'asc' ? "text-primary" : "text-white/50")} />
+                      <ChevronDown size={8} className={cn(sortKey === 'sender' && sortOrder === 'desc' ? "text-primary" : "text-white/50")} />
+                    </div>
+                  </button>
+                </th>
+                <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase w-1/3">
+                  <button onClick={() => handleSort('subject')} className="flex items-center gap-2 hover:text-primary transition-colors uppercase tracking-[0.3em] group/th">
+                    Subject
+                    <div className="flex flex-col -space-y-1 opacity-0 group-hover/th:opacity-100 transition-opacity">
+                      <ChevronUp size={8} className={cn(sortKey === 'subject' && sortOrder === 'asc' ? "text-primary" : "text-white/50")} />
+                      <ChevronDown size={8} className={cn(sortKey === 'subject' && sortOrder === 'desc' ? "text-primary" : "text-white/50")} />
+                    </div>
+                  </button>
+                </th>
+                <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase">
+                  <button onClick={() => handleSort('labels')} className="flex items-center gap-2 hover:text-primary transition-colors uppercase tracking-[0.3em] group/th">
+                    Labels
+                    <div className="flex flex-col -space-y-1 opacity-0 group-hover/th:opacity-100 transition-opacity">
+                      <ChevronUp size={8} className={cn(sortKey === 'labels' && sortOrder === 'asc' ? "text-primary" : "text-white/50")} />
+                      <ChevronDown size={8} className={cn(sortKey === 'labels' && sortOrder === 'desc' ? "text-primary" : "text-white/50")} />
+                    </div>
+                  </button>
+                </th>
+                <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase w-24">
+                  <button onClick={() => handleSort('time')} className="flex items-center gap-2 hover:text-primary transition-colors uppercase tracking-[0.3em] group/th">
+                    Time
+                    <div className="flex flex-col -space-y-1 opacity-0 group-hover/th:opacity-100 transition-opacity">
+                      <ChevronUp size={8} className={cn(sortKey === 'time' && sortOrder === 'asc' ? "text-primary" : "text-white/50")} />
+                      <ChevronDown size={8} className={cn(sortKey === 'time' && sortOrder === 'desc' ? "text-primary" : "text-white/50")} />
+                    </div>
+                  </button>
+                </th>
+                <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase text-right w-32">
+                  <button onClick={() => handleSort('sentiment')} className="flex items-center gap-2 hover:text-primary transition-colors uppercase tracking-[0.3em] ml-auto group/th">
+                    Sentiment
+                    <div className="flex flex-col -space-y-1 opacity-0 group-hover/th:opacity-100 transition-opacity">
+                      <ChevronUp size={8} className={cn(sortKey === 'sentiment' && sortOrder === 'asc' ? "text-primary" : "text-white/50")} />
+                      <ChevronDown size={8} className={cn(sortKey === 'sentiment' && sortOrder === 'desc' ? "text-primary" : "text-white/50")} />
+                    </div>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="text-sm">
+              {groupedThreads.length > 0 ? (
+                groupedThreads.map((thread, index) => {
+                  const { latestEmail: email, emails, count, threadId } = thread;
+                  const isExpanded = expandedThreads.has(threadId);
+                  const hasMultiple = count > 1;
+                  
+                  return (
+                    <React.Fragment key={threadId}>
+                      <motion.tr 
+                        layout
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.03)", x: 4 }}
+                        onClick={() => setSelectedEmail(email)}
+                        className={cn(
+                          "group transition-all cursor-pointer border-b border-white/[0.03] relative",
+                          selectedEmail.id === email.id ? 'bg-white/[0.07]' : '',
+                          selectedIds.includes(email.id) ? 'bg-primary/[0.03]' : '',
+                          thread.isNegative ? 'after:absolute after:left-0 after:top-0 after:bottom-0 after:w-1 after:bg-red-500/40' : ''
+                        )}
+                      >
+                        <td className="py-5 px-2">
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={(e) => toggleSelect(e, email.id, threadId)}
+                              className="text-on-surface-variant/10 group-hover:text-on-surface-variant/30 transition-colors"
+                            >
+                              {emails.every(e => selectedIds.includes(e.id)) ? <MotionIcon><CircleCheck size={16} className="text-primary" /></MotionIcon> : <MotionIcon><Circle size={16} /></MotionIcon>}
+                            </button>
+                            {hasMultiple && (
+                              <button 
+                                onClick={(e) => toggleThread(e, threadId)}
+                                className="text-on-surface-variant/30 hover:text-primary transition-colors flex items-center gap-1"
+                              >
+                                <motion.div
+                                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <MotionIcon><ChevronDown size={14} /></MotionIcon>
+                                </motion.div>
+                                <span className="text-[9px] font-black opacity-30 group-hover:opacity-100">{count}</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-5">
+                          <button 
+                            onClick={(e) => toggleRead(e, email.id, threadId)}
+                            className="text-on-surface-variant/20 hover:text-primary transition-colors"
+                            title={emails.every(e => e.read) ? "Mark thread as unread" : "Mark thread as read"}
+                          >
+                            {emails.every(e => e.read) ? <MotionIcon><CircleCheck size={16} className="opacity-40" /></MotionIcon> : <MotionIcon><Circle size={16} className="text-primary" /></MotionIcon>}
+                          </button>
+                        </td>
+                        <td className={cn(
+                          "py-5 pr-4 truncate max-w-[200px]",
+                          thread.hasUnread ? 'font-bold text-on-surface' : 'font-normal text-on-surface-variant/70'
+                        )}>
+                          <div className="flex items-center gap-3">
+                            {thread.hasUnread && <div className="w-1.5 h-1.5 bg-primary rounded-full shrink-0" />}
+                            <span className="truncate">{email.sender}</span>
+                            {drafts[email.id] && (
+                              <span className="text-[7px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-sm border border-primary/20 font-black uppercase tracking-widest shrink-0">Draft</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className={cn(
+                          "py-5 pr-4 truncate max-w-[300px]",
+                          thread.hasUnread ? 'font-bold text-white' : 'font-normal text-on-surface-variant/70'
+                        )}>
+                          <span className="truncate">{email.subject}</span>
+                        </td>
+                        <td className="py-5">
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            {(email.labels || []).map(label => (
+                              <span key={label} className="text-[8px] uppercase tracking-widest px-2 py-0.5 bg-white/5 text-on-surface-variant/80 border border-white/10 rounded-sm flex items-center gap-1 whitespace-nowrap">
+                                <MotionIcon><Tag size={8} className="opacity-70" /></MotionIcon>
+                                {label}
+                              </span>
+                            ))}
+                            
+                            <div className="flex items-center gap-1 ml-1">
+                              {suggestedLabelsMap[email.id] ? (
+                                <div className="flex gap-1 animate-in fade-in slide-in-from-left-1 duration-300">
+                                  {suggestedLabelsMap[email.id].map(label => {
+                                    const isApplied = (email.labels || []).includes(label);
+                                    return (
+                                      <button
+                                        key={label}
+                                        onClick={(e) => handleApplySuggestedLabel(e, email.id, label)}
+                                        className={cn(
+                                          "text-[7px] uppercase tracking-widest px-1.5 py-0.5 border transition-all rounded-sm",
+                                          isApplied 
+                                            ? "bg-primary text-on-primary border-primary" 
+                                            : "border-primary/40 text-primary hover:bg-primary/10"
+                                        )}
+                                      >
+                                        {isApplied ? '✓' : '+'} {label}
+                                      </button>
+                                    );
+                                  })}
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setSuggestedLabelsMap(prev => { const next = { ...prev }; delete next[email.id]; return next; }); }}
+                                    className="text-[7px] text-on-surface-variant/20 hover:text-red-500 transition-colors"
+                                  >
+                                    <MotionIcon><X size={10} /></MotionIcon>
+                                  </button>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={(e) => handleSuggestLabelsForEmail(e, email)}
+                                  disabled={isSuggestingLabels[email.id]}
+                                  className="p-1 text-on-surface-variant/10 hover:text-primary transition-colors group/ai"
+                                  title="AI Suggest Labels"
+                                >
+                                  {isSuggestingLabels[email.id] ? (
+                                    <MotionIcon><Loader2 size={10} className="animate-spin" /></MotionIcon>
+                                  ) : (
+                                    <MotionIcon><Sparkles size={10} className="group-hover/ai:scale-110 transition-transform opacity-20 group-hover/ai:opacity-100" /></MotionIcon>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className={cn(
+                          "py-5 text-[10px] font-mono tracking-tighter",
+                          thread.hasUnread ? 'text-on-surface-variant/80' : 'text-on-surface-variant/50'
+                        )}>{email.time}</td>
+                        <td className="py-5 text-right">
+                          <div className="flex justify-end">
+                            <span className={cn(
+                              "px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-sm border",
+                              email.sentiment === 'Positive' ? 'bg-primary/10 text-primary border-primary/20' :
+                              email.sentiment === 'Negative' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                              'bg-white/5 text-on-surface-variant/70 border-white/10'
+                            )}>
+                              {email.sentiment}
+                            </span>
+                          </div>
+                        </td>
+                      </motion.tr>
+                      <AnimatePresence initial={false}>
+                        {isExpanded && emails.slice(1).map((subEmail, index) => (
+                          <motion.tr 
+                            layout
+                            key={subEmail.id} 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ 
+                              duration: 0.2, 
+                              ease: "easeInOut",
+                              delay: index * 0.02 
+                            }}
+                            onClick={() => setSelectedEmail(subEmail)}
+                            className={cn(
+                              "group hover:bg-white/5 transition-all cursor-pointer border-l-2 border-primary/20 bg-white/[0.02] overflow-hidden",
+                              selectedEmail.id === subEmail.id ? 'bg-white/10' : '',
+                              selectedIds.includes(subEmail.id) ? 'bg-primary/5' : ''
+                            )}
+                          >
+                            <td className="py-4 pl-10">
+                              <button 
+                                onClick={(e) => toggleSelect(e, subEmail.id)}
+                                className="text-on-surface-variant/20 group-hover:text-on-surface-variant/40 transition-colors"
+                              >
+                                {selectedIds.includes(subEmail.id) ? <MotionIcon><CircleCheck size={14} className="text-primary" /></MotionIcon> : <MotionIcon><Circle size={14} /></MotionIcon>}
+                              </button>
+                            </td>
+                            <td className="py-4">
+                              <button 
+                                onClick={(e) => toggleRead(e, subEmail.id)}
+                                className="text-on-surface-variant/40 hover:text-primary transition-colors"
+                              >
+                                {subEmail.read ? <MotionIcon><CircleCheck size={14} /></MotionIcon> : <MotionIcon><Circle size={14} /></MotionIcon>}
+                              </button>
+                            </td>
+                            <td className={cn(
+                              "py-4 text-xs",
+                              subEmail.read ? 'font-normal text-on-surface-variant/70' : 'font-bold text-on-surface'
+                            )}>
+                              <div className="flex items-center gap-2">
+                                {subEmail.sender}
+                                {drafts[subEmail.id] && (
+                                  <span className="text-[7px] bg-primary/10 text-primary px-1 py-0.5 rounded-sm border border-primary/20 font-black uppercase tracking-widest">Draft</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className={cn(
+                              "py-4 text-xs",
+                              subEmail.read ? 'font-normal text-on-surface-variant/70' : 'font-bold text-white/80'
+                            )}>
+                              <span>{subEmail.subject}</span>
+                            </td>
+                            <td className="py-4">
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                {(subEmail.labels || []).map(label => (
+                                  <span key={label} className="text-[7px] uppercase tracking-widest px-1.5 py-0.5 bg-white/5 text-on-surface-variant/70 border border-white/5 rounded-sm flex items-center gap-1">
+                                    <MotionIcon><Tag size={6} className="opacity-70" /></MotionIcon>
+                                    {label}
+                                  </span>
+                                ))}
+                                
+                                <div className="flex items-center gap-1 ml-1">
+                                  {suggestedLabelsMap[subEmail.id] ? (
+                                    <div className="flex gap-1 animate-in fade-in slide-in-from-left-1 duration-300">
+                                      {suggestedLabelsMap[subEmail.id].map(label => {
+                                        const isApplied = (subEmail.labels || []).includes(label);
+                                        return (
+                                          <button
+                                            key={label}
+                                            onClick={(e) => handleApplySuggestedLabel(e, subEmail.id, label)}
+                                            className={cn(
+                                              "text-[6px] uppercase tracking-widest px-1 py-0.5 border transition-all",
+                                              isApplied 
+                                                ? "bg-primary text-on-primary border-primary" 
+                                                : "border-primary/40 text-primary hover:bg-primary/10"
+                                            )}
+                                          >
+                                            {isApplied ? '✓' : '+'} {label}
+                                          </button>
+                                        );
+                                      })}
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); setSuggestedLabelsMap(prev => { const next = { ...prev }; delete next[subEmail.id]; return next; }); }}
+                                        className="text-[6px] text-on-surface-variant/20 hover:text-red-500 transition-colors"
+                                      >
+                                        <MotionIcon><X size={8} /></MotionIcon>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button 
+                                      onClick={(e) => handleSuggestLabelsForEmail(e, subEmail)}
+                                      disabled={isSuggestingLabels[subEmail.id]}
+                                      className="p-1 text-on-surface-variant/20 hover:text-primary transition-colors group/ai"
+                                      title="AI Suggest Labels"
+                                    >
+                                      {isSuggestingLabels[subEmail.id] ? (
+                                        <MotionIcon><Loader2 size={8} className="animate-spin" /></MotionIcon>
+                                      ) : (
+                                        <MotionIcon><Sparkles size={8} className="group-hover/ai:scale-110 transition-transform" /></MotionIcon>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className={cn(
+                              "py-4 text-xs",
+                              subEmail.read ? 'text-on-surface-variant/50' : 'text-on-surface-variant/70'
+                            )}>{subEmail.time}</td>
+                            <td className="py-4 text-right">
+                              <span className={cn(
+                                "px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-tighter",
+                                subEmail.sentiment === 'Positive' ? 'text-primary' :
+                                subEmail.sentiment === 'Negative' ? 'text-red-500' :
+                                'text-on-surface-variant/70'
+                              )}>
+                                {subEmail.sentiment}
+                              </span>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </AnimatePresence>
+                    </React.Fragment>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-24 text-center text-on-surface-variant/70 italic">
+                    No communications matching your criteria.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="flex justify-center py-24"
+        >
+          <button 
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className={cn(
+              "relative group px-12 py-5 rounded-full overflow-hidden transition-all duration-500",
+              "bg-gradient-to-br from-surface-container-highest/40 to-primary/5",
+              "backdrop-blur-md border border-white/10 hover:border-primary/40",
+              "shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]",
+              "active:scale-95 disabled:opacity-80 disabled:cursor-not-allowed",
+              isLoadingMore && "cursor-wait"
+            )}
+          >
+            {/* Animated background glow */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            
+            <div className="relative flex items-center gap-4">
+              <div className="relative">
+                {isLoadingMore ? (
+                  <MotionIcon><Loader2 size={18} className="animate-spin text-primary" /></MotionIcon>
+                ) : (
+                  <motion.div
+                    animate={{ y: [0, 4, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <MotionIcon><ChevronDown size={18} className="text-primary group-hover:text-white transition-colors" /></MotionIcon>
+                  </motion.div>
+                )}
+              </div>
+              
+              <span className={cn(
+                "text-[10px] font-black uppercase tracking-[0.4em] transition-all duration-300",
+                "bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent",
+                "group-hover:from-primary group-hover:to-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+              )}>
+                {isLoadingMore ? 'Loading more emails...' : 'Load More'}
+              </span>
+            </div>
+            
+            {/* Subtle border glow effect */}
+            <div className="absolute inset-0 rounded-full border border-primary/0 group-hover:border-primary/20 transition-colors duration-500" />
+          </button>
+        </motion.div>
+      </section>
+
+      <motion.section 
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.6, delay: 0.1, ease: [0.23, 1, 0.32, 1] }}
+        className="bg-surface-container-low p-12 border border-white/5 space-y-6 mb-24"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <MotionIcon><Sparkles size={14} className="text-on-surface-variant/40" /></MotionIcon>
+            <h3 className="text-xs tracking-[0.2em] text-on-surface-variant/40 uppercase">Auto Reply Feature (Negative Filter)</h3>
+          </div>
+          <div className="bg-black text-white px-2 py-0.5 text-[9px] font-bold uppercase">
+            {selectedEmail.sentiment === 'Negative' ? 'Ready' : 'Not Applicable'}
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {threadSummary && (
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+                className="md:col-span-2 bg-primary/5 border-l-2 border-primary p-4 relative overflow-hidden"
+              >
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                <div className="flex items-center gap-2 mb-1">
+                  <MotionIcon><Sparkles size={10} className="text-primary" /></MotionIcon>
+                  <span className="text-[8px] uppercase tracking-[0.2em] text-primary font-black">AI Executive Summary</span>
+                </div>
+                <p className="text-[11px] text-on-surface/80 italic leading-relaxed relative z-10">"{threadSummary}"</p>
+              </motion.div>
+            )}
+            {urgencyScore !== null && (
+              <motion.div 
+                whileHover={{ y: -4, scale: 1.02, boxShadow: "0 10px 20px rgba(0,0,0,0.2)" }}
+                className="bg-white/5 border border-white/10 p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300"
+              >
+                <div className="absolute top-0 right-0 p-2 opacity-10">
+                  <div className="w-12 h-12 border-t border-r border-white"></div>
+                </div>
+                <div>
+                  <span className="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/40 font-bold">Urgency Index</span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <motion.span 
+                      key={urgencyScore}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={`text-2xl font-headline font-bold ${urgencyScore > 70 ? 'text-red-500' : 'text-primary'}`}
+                    >
+                      {urgencyScore}
+                    </motion.span>
+                    <span className="text-[10px] text-on-surface-variant/20 uppercase">/ 100</span>
+                  </div>
+                </div>
+                <div className="w-full bg-white/5 h-1 mt-2 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${urgencyScore}%` }}
+                    transition={{ duration: 1.5, ease: [0.23, 1, 0.32, 1] }}
+                    className={`h-full ${urgencyScore > 70 ? 'bg-red-500' : 'bg-primary'}`} 
+                  ></motion.div>
+                </div>
+              </motion.div>
+            )}
+          </div>
+
+          {sentimentDrift.length > 0 && (
+            <div className="bg-white/5 border border-white/10 p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MotionIcon><TrendingUp size={14} className="text-primary" /></MotionIcon>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant/40 font-bold">Sentiment Trend Analysis</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-primary rounded-full"></div>
+                    <span className="text-[8px] uppercase tracking-widest text-on-surface-variant/40">Positive</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span className="text-[8px] uppercase tracking-widest text-on-surface-variant/40">Negative</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-48 w-full relative">
+                {sentimentDrift.length === 1 && (
+                  <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                    <p className="text-[0.6rem] uppercase tracking-[0.2em] text-on-surface-variant/40 bg-surface-container-low/80 px-4 py-2 border border-white/5 rounded-sm">
+                      Insufficient data for trend analysis
+                    </p>
+                  </div>
+                )}
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={sentimentDrift.map((val, i) => ({
+                      message: i + 1,
+                      sentiment: val,
+                    }))}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorSentiment" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#fff" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#fff" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis 
+                      dataKey="message" 
+                      stroke="rgba(255,255,255,0.2)" 
+                      fontSize={10} 
+                      tickLine={false}
+                      axisLine={false}
+                      label={{ value: 'Message #', position: 'insideBottomRight', offset: -5, fontSize: 8, fill: 'rgba(255,255,255,0.2)' }}
+                    />
+                    <YAxis 
+                      domain={[-1, 1]} 
+                      stroke="rgba(255,255,255,0.2)" 
+                      fontSize={10} 
+                      tickLine={false}
+                      axisLine={false}
+                      ticks={[-1, -0.5, 0, 0.5, 1]}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }}
+                      itemStyle={{ color: '#fff' }}
+                      labelStyle={{ color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}
+                      cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
+                    />
+                    <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeDasharray="3 3" />
+                    <Area 
+                      type="monotone" 
+                      dataKey="sentiment" 
+                      stroke="var(--color-primary)" 
+                      strokeWidth={2}
+                      fillOpacity={1} 
+                      fill="url(#colorSentiment)" 
+                      animationDuration={1500}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] uppercase tracking-widest text-on-surface-variant/20">Initial</span>
+                    <span className={`text-xs font-bold ${sentimentDrift[0] > 0 ? 'text-primary' : sentimentDrift[0] < 0 ? 'text-red-500' : 'text-on-surface-variant/40'}`}>
+                      {sentimentDrift[0] > 0 ? '+' : ''}{sentimentDrift[0].toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="w-px h-6 bg-white/5"></div>
+                  <div className="flex flex-col">
+                    <span className="text-[8px] uppercase tracking-widest text-on-surface-variant/20">Current</span>
+                    <span className={`text-xs font-bold ${sentimentDrift[sentimentDrift.length - 1] > 0 ? 'text-primary' : sentimentDrift[sentimentDrift.length - 1] < 0 ? 'text-red-500' : 'text-on-surface-variant/40'}`}>
+                      {sentimentDrift[sentimentDrift.length - 1] > 0 ? '+' : ''}{sentimentDrift[sentimentDrift.length - 1].toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[9px] uppercase tracking-widest text-on-surface-variant/40 italic">
+                  {sentimentDrift.length > 1 ? (
+                    sentimentDrift[sentimentDrift.length - 1] > sentimentDrift[0] 
+                      ? 'Trending Positive ↑' 
+                      : sentimentDrift[sentimentDrift.length - 1] < sentimentDrift[0] 
+                        ? 'Trending Negative ↓' 
+                        : 'Stable Trend →'
+                  ) : 'No Trend Data'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {sentimentDrift.length > 1 && (
+            <div className="bg-white/5 border border-white/10 p-4 flex items-center justify-between">
+              <span className="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/40 font-bold">Sentiment Drift (Raw)</span>
+              <div className="flex items-end gap-1 h-6">
+                {sentimentDrift.map((val, i) => (
+                  <div 
+                    key={i} 
+                    className={`w-1 transition-all duration-500 ${val > 0 ? 'bg-primary' : val < 0 ? 'bg-red-500' : 'bg-white/20'}`}
+                    style={{ height: `${Math.max(20, Math.abs(val) * 100)}%` }}
+                  ></div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isSummarizing && (
+            <div className="bg-white/5 p-4 border-l-2 border-white/10 flex items-center gap-3">
+              <MotionIcon><Loader2 size={12} className="animate-spin text-on-surface-variant/40" /></MotionIcon>
+              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant/40 italic">Synthesizing thread context...</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 items-center justify-between">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/40 mr-2">Labels:</span>
+              {(selectedEmail.labels || []).map(label => (
+                <span key={label} className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary border border-primary/20 text-[10px] uppercase tracking-widest rounded-sm">
+                  <MotionIcon><Tag size={10} /></MotionIcon>
+                  {label}
+                  <button onClick={() => handleToggleLabel(label)} className="hover:text-red-500 transition-colors">
+                    <MotionIcon><X size={10} /></MotionIcon>
+                  </button>
+                </span>
+              ))}
+              <form onSubmit={handleAddCustomLabel} className="flex items-center ml-2">
+                <input 
+                  type="text"
+                  placeholder="Add label..."
+                  value={newLabelInput}
+                  onChange={(e) => setNewLabelInput(e.target.value)}
+                  className="bg-transparent border-b border-white/10 text-[10px] uppercase tracking-widest py-1 px-2 focus:outline-none focus:border-primary transition-colors w-24"
+                />
+                <button type="submit" className="p-1 text-on-surface-variant/40 hover:text-primary transition-colors">
+                  <MotionIcon><Plus size={14} /></MotionIcon>
+                </button>
+              </form>
+              
+              {suggestedLabels.length > 0 && !isSummarizing && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-2 ml-4 border-l border-white/10 pl-4 duration-500"
+                >
+                  <div className="flex items-center gap-1">
+                    <MotionIcon><Sparkles size={10} className="text-primary" /></MotionIcon>
+                    <span className="text-[9px] uppercase tracking-widest text-primary font-black">AI Suggestions:</span>
+                  </div>
+                  {suggestedLabels.map(label => {
+                    const isApplied = (selectedEmail.labels || []).includes(label);
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => handleToggleLabel(label)}
+                        className={cn(
+                          "px-2 py-0.5 border text-[9px] uppercase tracking-widest transition-all",
+                          isApplied 
+                            ? "bg-primary text-on-primary border-primary" 
+                            : "border-primary/40 text-primary hover:bg-primary/10"
+                        )}
+                      >
+                        {isApplied ? '✓' : '+'} {label}
+                      </button>
+                    );
+                  })}
+                  <button 
+                    onClick={handleApplyAllSuggestions}
+                    className="ml-2 text-[8px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors underline underline-offset-4"
+                  >
+                    Apply All
+                  </button>
+                </motion.div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Escalate</button>
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Schedule</button>
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Archive</button>
+            </div>
+          </div>
+
+          <div className="bg-white/5 p-6 border border-white/10 space-y-4">
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <div className="flex flex-col gap-1">
+                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/40">Conversation Thread</p>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-primary">{selectedEmail.subject}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded-sm",
+                      urgencyScore && urgencyScore > 70 ? "bg-red-500 text-white" : "bg-primary/20 text-primary"
+                    )}>
+                      Urgency: {urgencyScore && urgencyScore > 70 ? 'High' : 'Normal'}
+                    </span>
+                    <span className={cn(
+                      "px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded-sm",
+                      selectedEmail.sentiment === 'Negative' ? "bg-red-500/20 text-red-500" : "bg-primary/20 text-primary"
+                    )}>
+                      Sentiment: {selectedEmail.sentiment}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-6 max-h-[300px] overflow-y-auto pr-2 hide-scrollbar">
+              {emailList
+                .filter(e => e.threadId === selectedEmail.threadId)
+                .sort((a, b) => a.id - b.id)
+                .map((msg) => (
+                  <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}>
+                    <div className={`max-w-[85%] p-4 ${msg.sender === 'me' ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface'} border border-white/5 relative group/msg`}>
+                      <div className="absolute -left-1 top-4 w-0.5 h-8 bg-primary/40 opacity-0 group-hover/msg:opacity-100 transition-opacity" />
+                      <div className="flex justify-between items-center mb-2 gap-4">
+                        <span className="text-[9px] uppercase tracking-widest opacity-60 font-bold">{msg.sender}</span>
+                        <span className="text-[9px] opacity-40">{msg.time}</span>
+                      </div>
+                      <div className={`text-xs leading-relaxed markdown-content ${msg.sender === 'me' ? '[&_strong]:text-inherit [&_em]:text-inherit' : ''}`}>
+                        <ReactMarkdown>{msg.sender === 'me' ? msg.content : highlightKeywords(msg.content)}</ReactMarkdown>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative group monolith-scanline"
+          >
+            {/* Glassmorphism Editor Container */}
+            <div className="backdrop-blur-xl bg-white/[0.03] border border-white/10 p-8 shadow-[0_0_40px_rgba(255,255,255,0.02)] relative overflow-hidden">
+              {/* Subtle background gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+              
+              {/* Header / Controls */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 border-b border-white/5 pb-6 relative z-10">
+                <div className="flex flex-wrap items-center gap-8">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/20 font-black">Mode</span>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => setIsPreviewMode(false)}
+                        className={cn(
+                          "text-[10px] uppercase tracking-widest transition-all flex items-center gap-2",
+                          !isPreviewMode ? "text-primary font-bold" : "text-on-surface-variant/40 hover:text-on-surface-variant/60"
+                        )}
+                      >
+                        <MotionIcon>
+                          <Edit3 size={12} />
+                        </MotionIcon>
+                        Editor
+                      </button>
+                      <button 
+                        onClick={() => setIsPreviewMode(true)}
+                        className={cn(
+                          "text-[10px] uppercase tracking-widest transition-all flex items-center gap-2",
+                          isPreviewMode ? "text-primary font-bold" : "text-on-surface-variant/40 hover:text-on-surface-variant/60"
+                        )}
+                      >
+                        <MotionIcon>
+                          <Eye size={12} />
+                        </MotionIcon>
+                        Preview
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="w-px h-8 bg-white/5 hidden md:block" />
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/20 font-black">Tone</span>
+                    <div className="flex bg-white/5 p-1 rounded-sm border border-white/5">
+                      {(['Empathetic', 'Formal', 'Direct'] as const).map(tone => (
+                        <motion.button 
+                          key={tone}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setReplyTone(tone)}
+                          title={`${tone} → ${tone === 'Formal' ? 'professional' : tone === 'Direct' ? 'concise' : 'understanding'} tone`}
+                          className={cn(
+                            "px-3 py-1 text-[9px] uppercase tracking-widest transition-all rounded-sm",
+                            replyTone === tone ? "bg-primary text-on-primary shadow-lg" : "text-on-surface-variant/40 hover:text-on-surface-variant/60"
+                          )}
+                        >
+                          <MotionIcon><Circle size={8} fill={replyTone === tone ? "currentColor" : "none"} /></MotionIcon>
+                          {tone}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="w-px h-8 bg-white/5 hidden md:block" />
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/20 font-black">Length</span>
+                    <div className="flex bg-white/5 p-1 rounded-sm border border-white/5">
+                      {(['Short', 'Medium', 'Detailed'] as const).map(len => (
+                        <motion.button 
+                          key={len}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setReplyLength(len)}
+                          className={cn(
+                            "px-3 py-1 text-[9px] uppercase tracking-widest transition-all rounded-sm",
+                            replyLength === len ? "bg-white/10 text-white" : "text-on-surface-variant/40 hover:text-on-surface-variant/60"
+                          )}
+                        >
+                          {len}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {generatedReply && (
+                  <div className="flex items-center gap-4">
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex flex-col items-end gap-1"
+                    >
+                      <span className="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/20 font-black">Confidence</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3].map(i => (
+                            <motion.div 
+                              key={i} 
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: i * 0.1 }}
+                              className={cn("w-1 h-3 rounded-full", i <= (aiConfidence === 'High' ? 3 : 2) ? "bg-primary" : "bg-white/10")} 
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[9px] uppercase tracking-widest text-primary font-bold">{aiConfidence}</span>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </div>
+
+              {/* Editor Area */}
+              <div className="relative min-h-[240px] flex flex-col z-10">
+                <AnimatePresence mode="wait">
+                  {isGenerating ? (
+                    <motion.div 
+                      key="generating"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-on-surface-variant/40"
+                    >
+                      <div className="relative">
+                      <MotionIcon><Loader2 size={32} className="animate-spin text-primary" /></MotionIcon>
+                        <motion.div 
+                          animate={{ scale: [1, 1.5, 1], opacity: [0.2, 0.5, 0.2] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="absolute inset-0 bg-primary blur-xl rounded-full"
+                        />
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs uppercase tracking-[0.3em] font-black animate-pulse">Thinking...</span>
+                        <span className="text-[10px] opacity-60 mt-2">Synthesizing professional response</span>
+                      </div>
+                    </motion.div>
+                  ) : isPreviewMode ? (
+                    <motion.div 
+                      key="preview"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex-1 overflow-y-auto markdown-content text-on-surface/90 leading-relaxed prose prose-invert prose-sm max-w-none"
+                    >
+                      <ReactMarkdown>{generatedReply || '_No content generated yet._'}</ReactMarkdown>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="editor"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex-1 flex flex-col"
+                    >
+                      <textarea
+                        value={generatedReply}
+                        onChange={(e) => setGeneratedReply(e.target.value)}
+                        placeholder="Select a negative email and click generate to see a preview, or start typing your own reply..."
+                        className={cn(
+                          "flex-1 w-full bg-transparent border-none focus:ring-0 resize-none text-sm leading-relaxed text-on-surface/80 placeholder:text-on-surface-variant/20 transition-all",
+                          !generatedReply && "italic"
+                        )}
+                      />
+                      
+                      <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/5">
+                        <div className="flex items-center gap-2 w-full mb-1">
+                          <MotionIcon><Zap size={10} className="text-primary" /></MotionIcon>
+                          <span className="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/20 font-black">Quick Responses</span>
+                        </div>
+                        {[
+                          { label: 'Acknowledge', text: 'Thank you for your message. We have received your request and are currently reviewing it. We will get back to you shortly.' },
+                          { label: 'Decline', text: 'Thank you for reaching out. Unfortunately, we are unable to proceed with your request at this time. We appreciate your understanding.' },
+                          { label: 'Request Info', text: 'Thank you for your inquiry. To better assist you, could you please provide more details regarding your request?' },
+                          { label: 'Confirm Resolution', text: 'We are pleased to inform you that the issue has been resolved. Please let us know if you encounter any further difficulties.' },
+                          { label: 'Schedule Meeting', text: 'I would like to discuss this further. Are you available for a brief meeting later this week? Please let me know your availability.' }
+                        ].map((action) => (
+                          <motion.button
+                            key={action.label}
+                            whileHover={{ scale: 1.05, backgroundColor: "rgba(var(--primary-rgb), 0.1)" }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setGeneratedReply(action.text)}
+                            className="px-3 py-1.5 bg-white/5 border border-white/10 text-[9px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all rounded-sm relative group/btn overflow-hidden"
+                          >
+                            <span className="relative z-10">{action.label}</span>
+                            <div className="absolute inset-0 bg-primary/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300" />
+                          </motion.button>
+                        ))}
+                      </div>
+                      {!generatedReply && (
+                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
+                          <motion.div 
+                            initial={{ opacity: 0.03 }}
+                            animate={{ opacity: [0.03, 0.06, 0.03] }}
+                            transition={{ duration: 3, repeat: Infinity }}
+                            className="text-8xl font-black uppercase tracking-tighter select-none relative"
+                          >
+                            Monolith AI
+                            <motion.div 
+                              animate={{ x: ['-100%', '200%'] }}
+                              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12"
+                            />
+                          </motion.div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Bottom Actions / Suggestions */}
+              <div className="mt-8 pt-6 border-t border-white/5 flex flex-col gap-6 relative z-10">
+                {!isGenerating && aiSuggestions.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <MotionIcon><Sparkles size={12} className="text-primary" /></MotionIcon>
+                      <span className="text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-black">Smart Suggestions</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {aiSuggestions.map((suggestion, idx) => (
+                        <motion.button 
+                          key={idx}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: idx * 0.1, ease: [0.23, 1, 0.32, 1] }}
+                          whileHover={{ scale: 1.05, backgroundColor: "rgba(var(--primary-rgb), 0.1)" }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleGenerateReply(suggestion)}
+                          className="group relative px-4 py-2 bg-white/5 border border-white/10 hover:border-primary/40 transition-all hover:bg-primary/5 flex items-center gap-2 overflow-hidden"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                          <MotionIcon><Zap size={10} className="text-primary opacity-40 group-hover:opacity-100" /></MotionIcon>
+                          <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/60 group-hover:text-primary transition-colors">{suggestion}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap justify-between items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    {generatedReply && (
+                      <div className="flex items-center gap-2">
+                        <motion.button 
+                          whileHover={{ scale: 1.05, backgroundColor: "rgba(var(--primary-rgb), 1)" }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleImproveReply}
+                          disabled={isImproving}
+                          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50"
+                        >
+                          {isImproving ? <MotionIcon><Loader2 size={12} className="animate-spin" /></MotionIcon> : <MotionIcon><Sparkles size={12} /></MotionIcon>}
+                          Improve
+                        </motion.button>
+                        <motion.button 
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleGenerateReply()}
+                          className="flex items-center gap-2 px-4 py-2 bg-white/5 text-on-surface-variant/60 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"
+                        >
+                          <MotionIcon><RefreshCw size={12} /></MotionIcon>
+                          Regenerate
+                        </motion.button>
+                        <motion.button 
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleCopyToClipboard}
+                          className="flex items-center gap-2 px-4 py-2 bg-white/5 text-on-surface-variant/60 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"
+                        >
+                          <MotionIcon><Copy size={12} /></MotionIcon>
+                          Copy
+                        </motion.button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {generatedReply ? (
+                      <>
+                        <motion.button 
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleDiscardDraft}
+                          className="text-[10px] uppercase tracking-widest text-on-surface-variant/40 hover:text-red-500 transition-colors"
+                        >
+                          Discard
+                        </motion.button>
+                        <motion.button 
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleSaveDraft}
+                          className="flex items-center gap-2 px-6 py-3 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all"
+                        >
+                          {saveStatus === 'saving' ? <MotionIcon><Loader2 size={12} className="animate-spin" /></MotionIcon> : 
+                           saveStatus === 'saved' ? <MotionIcon><CheckCircle size={12} className="text-green-500" /></MotionIcon> : <MotionIcon><Edit3 size={12} /></MotionIcon>} 
+                          {saveStatus === 'saved' ? 'Saved' : 'Save Draft'}
+                        </motion.button>
+                        <motion.button 
+                          whileHover={{ scale: 1.05, x: 5 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleSendReply}
+                          disabled={isSending}
+                          className="flex items-center gap-2 px-10 py-3 bg-primary text-on-primary text-[10px] uppercase tracking-widest font-black hover:bg-neutral-200 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)]"
+                        >
+                          {isSending ? <MotionIcon><Loader2 size={14} className="animate-spin" /></MotionIcon> : <MotionIcon><Send size={14} /></MotionIcon>}
+                          Send Response
+                        </motion.button>
+                      </>
+                    ) : (
+                      <motion.button 
+                        whileHover={{ scale: 1.02, backgroundColor: "rgba(255, 255, 255, 0.9)" }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleGenerateReply()}
+                        disabled={isGenerating || selectedEmail.sentiment !== 'Negative'}
+                        className="group relative flex items-center gap-3 px-12 py-4 bg-white text-black text-[11px] uppercase tracking-[0.3em] font-black hover:bg-neutral-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed overflow-hidden"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/20 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                        {isGenerating ? <MotionIcon><Loader2 size={16} className="animate-spin" /></MotionIcon> : <MotionIcon><Sparkles size={16} /></MotionIcon>}
+                        Generate AI Reply
+                      </motion.button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </motion.section>
+    </motion.div>
   );
 };
