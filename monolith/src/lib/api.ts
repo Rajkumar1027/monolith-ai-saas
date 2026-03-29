@@ -96,7 +96,7 @@ export async function safeFetch(url: string, options: RequestInit = {}): Promise
 }
 
 
-export async function registerUser(data: any) {
+export async function registerUser(data: { email: string; password: string; username?: string }) {
   const res = await safeFetch(`${BASE_URL}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -105,7 +105,7 @@ export async function registerUser(data: any) {
   return res.json();
 }
 
-export async function loginUser(data: any) {
+export async function loginUser(data: { email: string; password: string }) {
   const res = await safeFetch(`${BASE_URL}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -117,12 +117,10 @@ export async function loginUser(data: any) {
 /** GET /health — quick health check */
 export async function checkBackendHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`https://monolith-ai-saas.onrender.com/health`, {
+    const res = await fetch(`${BASE_URL}/health`, {
       method: 'GET',
     });
-    // The "Backend not running" popup must ONLY appear if this fetch throws a network error,
-    // not on any 200/400/500 response.
-    return true; 
+    return res.ok; 
   } catch (err) {
     console.error("Health check network error:", err);
     return false;

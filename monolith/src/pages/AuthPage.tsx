@@ -90,13 +90,15 @@ export const AuthPage: React.FC = () => {
 
     try {
       if (mode === 'login') {
-        const res = await loginUser({ username: formData.email, password: formData.password });
+        const res = await loginUser({ email: formData.email, password: formData.password });
         if (res.access_token) {
           localStorage.setItem('access_token', res.access_token);
+          localStorage.setItem('monolith_token', res.access_token);
+          localStorage.setItem('monolith_user', JSON.stringify(res.user));
           localStorage.setItem('monolith_auth', 'true');
           navigate('/dashboard');
         } else {
-          setError('Invalid credentials');
+          setError(res.detail || 'Invalid credentials');
         }
       } else {
         if (formData.password !== formData.confirmPassword) {
@@ -105,19 +107,17 @@ export const AuthPage: React.FC = () => {
             return;
         }
         const res = await registerUser({ username: formData.username, email: formData.email, password: formData.password });
-        if (res.message) {
-          // Auto-login after successful registration
-          const loginRes = await loginUser({ username: formData.username, password: formData.password });
-          if (loginRes.access_token) {
-             localStorage.setItem('access_token', loginRes.access_token);
-             localStorage.setItem('monolith_auth', 'true');
-             navigate('/dashboard');
-          } else {
-             setMode('login');
-             setError('Registration successful! Please login.');
-          }
+        if (res.access_token) {
+          localStorage.setItem('access_token', res.access_token);
+          localStorage.setItem('monolith_token', res.access_token);
+          localStorage.setItem('monolith_user', JSON.stringify(res.user));
+          localStorage.setItem('monolith_auth', 'true');
+          navigate('/dashboard');
+        } else if (res.message) {
+          setMode('login');
+          setError('Registration successful! Please login.');
         } else {
-          setError('Registration failed');
+          setError(res.detail || 'Registration failed');
         }
       }
     } catch (err: any) {

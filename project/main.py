@@ -155,23 +155,19 @@ async def register(request: Request):
         if db is None:
             raise HTTPException(status_code=503, detail="Database not connected")
         
-        # Accept both JSON and form data
         try:
             body = await request.json()
         except:
             body = {}
             
-        username = (body.get("username") or body.get("name") or 
-                   body.get("user") or "").strip()
+        username = (body.get("username") or body.get("name") or body.get("user") or "").strip()
         email = (body.get("email") or body.get("EMAIL") or "").strip()
         password = (body.get("password") or body.get("PASSWORD") or "").strip()
-        
-        print(f"🔍 Registration attempt - email: {email}, body keys: {list(body.keys())}")
         
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email and password required")
         
-        # Truncate password to 72 bytes for bcrypt
+        # Consistent 72-byte truncation for bcrypt
         password_bytes = password.encode("utf-8")[:72]
         password_truncated = password_bytes.decode("utf-8", errors="ignore")
         
@@ -180,15 +176,25 @@ async def register(request: Request):
             raise HTTPException(status_code=400, detail="Email already registered")
         
         hashed = pwd_context.hash(password_truncated)
-        
-        db.users.insert_one({
+        user_obj = {
             "username": username,
             "email": email,
             "password": hashed
-        })
+        }
+        db.users.insert_one(user_obj)
+        
+        # Generate token for immediate auto-login
+        access_token = create_access_token(data={"sub": email})
         
         print(f"✅ User registered: {email}")
-        return {"message": "Registration successful"}
+        return {
+            "message": "Registration successful",
+            "access_token": access_token,
+            "user": {
+                "email": email,
+                "username": username
+            }
+        }
         
     except HTTPException:
         raise
@@ -202,44 +208,38 @@ async def login(request: Request):
         if db is None:
             raise HTTPException(status_code=503, detail="Database not connected")
         
-        # Accept both JSON and form data
         try:
             body = await request.json()
         except:
             body = {}
         
-        # Try all possible field names
-        email = (body.get("email") or body.get("EMAIL") or 
-                body.get("username") or body.get("user") or "").strip()
-        password = (body.get("password") or body.get("PASSWORD") or 
-                   body.get("pass") or "").strip()
-        
-        print(f"🔍 Login attempt - email: {email}, body keys: {list(body.keys())}")
+        email = (body.get("email") or body.get("EMAIL") or body.get("username") or body.get("user") or "").strip()
+        password = (body.get("password") or body.get("PASSWORD") or body.get("pass") or "").strip()
         
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email and password required")
         
         existing = db.users.find_one({"email": email})
         if not existing:
-            raise HTTPException(status_code=401, detail="Incorrect username or password")
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
         
+        # Consistent 72-byte truncation for bcrypt
         password_bytes = password.encode("utf-8")[:72]
         password_truncated = password_bytes.decode("utf-8", errors="ignore")
         
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        if not verify_password(password_truncated, existing["password"]):
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
         
-        if not pwd_context.verify(password_truncated, existing["password"]):
-            raise HTTPException(status_code=401, detail="Incorrect username or password")
+        access_token = create_access_token(data={"sub": email})
         
         print(f"✅ User logged in: {email}")
         return {
             "message": "Login successful",
+            "access_token": access_token,
             "user": {
                 "email": email,
                 "username": existing.get("username", "")
-            },
-            "token": email
+            }
         }
         
     except HTTPException:
