@@ -26,7 +26,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
   } | null>(null);
   const [sentimentData, setSentimentData] = useState<SentimentDataPoint[]>([]);
   const [momentumData, setMomentumData] = useState<MomentumDataPoint[]>([]);
-  const [feedbackItems, setFeedbackItems] = useState<any[]>([]);
+  const [feedItems, setFeedItems] = useState<any[]>([]);
   const [chartType, setChartType] = useState<'Bar' | 'Line' | 'Pie'>('Bar');
   const [timeframe, setTimeframe] = useState<'D' | 'W' | 'M'>('D');
   const [isComparisonMode, setIsComparisonMode] = useState(false);
@@ -61,7 +61,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
     setIsUploading(false);
     setSentimentData([]);
     setMomentumData([]);
-    setFeedbackItems([]);
+    setFeedItems([]);
     setInsights(null);
     setTotalSamples(0);
     setStartDate('');
@@ -96,15 +96,8 @@ export const FeedbackAnalysisPage: React.FC = () => {
     setMomentumData(newData);
 
     // Mock feedback items
-    const mockFeed = [
-      { sentiment: 'Positive' as const, time: '2m ago', content: '"The new monolith interface is incredibly fast. The minimalist design helps me focus on data without distraction."' },
-      { sentiment: 'Negative' as const, time: '14m ago', content: '"Found the CSV upload a bit restrictive with the 50MB limit. Need support for larger datasets for enterprise analysis."', hasAction: true },
-      { sentiment: 'Neutral' as const, time: '1h ago', content: '"Analysis results are consistent with our internal tracking. No major surprises in this week\'s data."' },
-      { sentiment: 'Positive' as const, time: '3h ago', content: '"The AI insights are surprisingly accurate. It identified a trend we had missed in our manual reviews."' },
-      { sentiment: 'Negative' as const, time: '5h ago', content: '"System latency spikes during peak hours are becoming a concern for our real-time monitoring team."', hasAction: true },
-      { sentiment: 'Positive' as const, time: '8h ago', content: '"Excellent customer support. The team was very responsive to our technical queries regarding the API integration."' },
-    ];
-    setFeedbackItems(mockFeed);
+    const feedItems: any[] = [];
+    setFeedItems(feedItems);
 
     // AI Insights Simulation
     const dynamicInsights = [
@@ -520,7 +513,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
         transition={{ duration: 0.6, delay: 0.3, ease: [0.23, 1, 0.32, 1] }}
         className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start"
       >
-        <FeedbackFeed data={feedbackItems.length > 0 ? feedbackItems : undefined} />
+        <FeedbackFeed data={feedItems.length > 0 ? feedItems : undefined} />
         <AIInsights 
           startDate={startDate} 
           endDate={endDate} 

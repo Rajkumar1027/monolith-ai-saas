@@ -8,21 +8,25 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tool
 import { Toaster, toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
 
-const initialEmails = [
-  { id: 1, threadId: 't1', sender: 'alex.v@monolith.ai', subject: 'Quarterly growth trajectory expectations', time: '14:20', sentiment: 'Positive', content: 'The **growth trajectory** for Q3 looks *promising*. We are seeing a **15% increase** in user retention.', read: false, labels: ['Urgent'] },
-  { id: 2, threadId: 't2', sender: 'support@cloud.sys', subject: 'Critical latency detected in Node-04', time: '11:05', sentiment: 'Negative', content: 'We are experiencing **severe latency issues** in Node-04. This is affecting *billing services* and causing timeouts for several enterprise clients.', read: true, labels: ['Follow-up'] },
-  { id: 4, threadId: 't2', sender: 'me', subject: 'Re: Critical latency detected in Node-04', time: '11:15', sentiment: 'Neutral', content: 'Acknowledged. I am looking into the **logs** now. Is this affecting *all regions*?', read: true, labels: [] },
-  { id: 5, threadId: 't2', sender: 'support@cloud.sys', subject: 'Re: Critical latency detected in Node-04', time: '11:20', sentiment: 'Negative', content: 'Yes, primarily **US-EAST-1** and **EU-WEST-1**. We need a resolution *ASAP* as SLAs are being breached.', read: false, labels: ['Urgent', 'Follow-up'] },
-  { id: 3, threadId: 't3', sender: 'billing@stripe.com', subject: 'Invoice #8841 available for review', time: '09:44', sentiment: 'Neutral', content: 'Your monthly invoice for **February** is now available in your dashboard. Please review it at your *earliest convenience*.', read: false, labels: [] },
-];
+const emails: any[] = [];
 
 export const EmailAnalysisPage: React.FC = () => {
-  const [emailList, setEmailList] = useState(initialEmails);
+  const [emails, setEmails] = useState(emails);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSentiment, setActiveSentiment] = useState<'All' | 'Positive' | 'Neutral' | 'Negative'>('All');
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [newLabelInput, setNewLabelInput] = useState('');
-  const [selectedEmail, setSelectedEmail] = useState(initialEmails[3]);
+  const [selectedEmail, setSelectedEmail] = useState<any>({
+  id: 0,
+  threadId: '',
+  sender: 'System',
+  subject: 'No Emails Found',
+  time: '',
+  sentiment: 'Neutral',
+  content: 'Connect your Gmail to begin analysis.',
+  read: true,
+  labels: []
+});
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [replyTone, setReplyTone] = useState<'Empathetic' | 'Formal' | 'Direct'>('Empathetic');
   const [threadSummary, setThreadSummary] = useState<string | null>(null);
@@ -92,7 +96,7 @@ export const EmailAnalysisPage: React.FC = () => {
     setSuggestedLabels([]);
     setIsSummarizing(true);
     try {
-      const threadMessages = emailList
+      const threadMessages = emails
         .filter(e => e.threadId === selectedEmail.threadId)
         .sort((a, b) => a.id - b.id);
       
@@ -155,7 +159,7 @@ export const EmailAnalysisPage: React.FC = () => {
     if (selectedIds.length === 0) return;
     setIsBatchLabeling(true);
     try {
-      const selectedEmails = emailList.filter(e => selectedIds.includes(e.id));
+      const selectedEmails = emails.filter(e => selectedIds.includes(e.id));
       const emailsContent = selectedEmails.map(e => `ID: ${e.id}\nFrom: ${e.sender}\nSubject: ${e.subject}\nContent: ${e.content}`).join('\n\n---\n\n');
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -171,7 +175,7 @@ export const EmailAnalysisPage: React.FC = () => {
 
       const suggestions = JSON.parse(response.text || '{}');
       
-      setEmailList(prev => prev.map(email => {
+      setEmails(prev => prev.map(email => {
         if (suggestions[email.id]) {
           const newLabels = Array.from(new Set([...(email.labels || []), ...suggestions[email.id]]));
           return { ...email, labels: newLabels };
@@ -216,7 +220,7 @@ export const EmailAnalysisPage: React.FC = () => {
 
   const handleApplySuggestedLabel = (e: React.MouseEvent, emailId: number, label: string) => {
     e.stopPropagation();
-    setEmailList(prev => prev.map(email => {
+    setEmails(prev => prev.map(email => {
       if (email.id === emailId) {
         const labels = email.labels || [];
         if (labels.includes(label)) {
@@ -243,7 +247,7 @@ export const EmailAnalysisPage: React.FC = () => {
     e.stopPropagation();
     if (threadId) {
       // Find all emails in this thread from the full list
-      const threadEmails = emailList.filter(email => email.threadId === threadId).map(email => email.id);
+      const threadEmails = emails.filter(email => email.threadId === threadId).map(email => email.id);
       const allSelected = threadEmails.every(tid => selectedIds.includes(tid));
       
       if (allSelected) {
@@ -260,8 +264,8 @@ export const EmailAnalysisPage: React.FC = () => {
 
   const handleBatchAction = (action: 'read' | 'unread' | 'delete' | 'tag' | 'archive' | 'clear-tags', label?: string) => {
     if (action === 'delete') {
-      const remainingEmails = emailList.filter(e => !selectedIds.includes(e.id));
-      setEmailList(remainingEmails);
+      const remainingEmails = emails.filter(e => !selectedIds.includes(e.id));
+      setEmails(remainingEmails);
       
       // If selected email was deleted, pick the first remaining one
       if (selectedIds.includes(selectedEmail.id)) {
@@ -286,7 +290,7 @@ export const EmailAnalysisPage: React.FC = () => {
       return;
     }
 
-    setEmailList(prev => {
+    setEmails(prev => {
       const newList = prev.map(email => {
         if (selectedIds.includes(email.id)) {
           if (action === 'read') return { ...email, read: true };
@@ -329,17 +333,17 @@ export const EmailAnalysisPage: React.FC = () => {
   const toggleRead = (e: React.MouseEvent, id: number, threadId?: string) => {
     e.stopPropagation();
     if (threadId) {
-      const threadEmails = emailList.filter(email => email.threadId === threadId);
+      const threadEmails = emails.filter(email => email.threadId === threadId);
       const allRead = threadEmails.every(email => email.read);
       
-      setEmailList(prev => prev.map(email => {
+      setEmails(prev => prev.map(email => {
         if (email.threadId === threadId) {
           return { ...email, read: !allRead };
         }
         return email;
       }));
     } else {
-      setEmailList(prev => prev.map(email => 
+      setEmails(prev => prev.map(email => 
         email.id === id ? { ...email, read: !email.read } : email
       ));
     }
@@ -376,7 +380,7 @@ export const EmailAnalysisPage: React.FC = () => {
     // Simulate sending
     setTimeout(() => {
       const newMessage = {
-        id: Math.max(...emailList.map(e => e.id)) + 1,
+        id: Math.max(...emails.map(e => e.id)) + 1,
         threadId: selectedEmail.threadId,
         sender: 'me',
         subject: `Re: ${selectedEmail.subject}`,
@@ -387,7 +391,7 @@ export const EmailAnalysisPage: React.FC = () => {
         labels: []
       };
 
-      setEmailList(prev => [...prev, newMessage]);
+      setEmails(prev => [...prev, newMessage]);
       
       // Clear draft
       setDrafts(prev => {
@@ -409,7 +413,7 @@ export const EmailAnalysisPage: React.FC = () => {
   const handleGenerateReply = async (customPrompt?: string) => {
     setIsGenerating(true);
     try {
-      const threadHistory = emailList
+      const threadHistory = emails
         .filter(e => e.threadId === selectedEmail.threadId)
         .sort((a, b) => a.id - b.id)
         .map(e => `${e.sender}: ${e.content}`)
@@ -485,7 +489,7 @@ export const EmailAnalysisPage: React.FC = () => {
   };
 
   const handleToggleLabel = (label: string) => {
-    setEmailList(prev => prev.map(email => {
+    setEmails(prev => prev.map(email => {
       if (email.id === selectedEmail.id) {
         const labels = email.labels || [];
         const newLabels = labels.includes(label)
@@ -538,7 +542,7 @@ export const EmailAnalysisPage: React.FC = () => {
           labels: ['Archive'] 
         },
       ];
-      setEmailList(prev => [...prev, ...moreEmails]);
+      setEmails(prev => [...prev, ...moreEmails]);
       toast.success('Loaded more communications', {
         className: 'bg-surface-container-highest border-white/10 text-white font-headline uppercase tracking-widest text-[10px]',
         icon: <MotionIcon><RefreshCcw size={14} className="text-primary" /></MotionIcon>
@@ -546,9 +550,9 @@ export const EmailAnalysisPage: React.FC = () => {
     }, 1500);
   };
 
-  const allLabels = Array.from(new Set(emailList.flatMap(e => e.labels || [])));
+  const allLabels = Array.from(new Set(emails.flatMap(e => e.labels || [])));
 
-  const filteredEmails = emailList.filter(email => {
+  const filteredEmails = emails.filter(email => {
     const matchesSearch = 
       email.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
       email.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -577,8 +581,8 @@ export const EmailAnalysisPage: React.FC = () => {
     const matchingThreadIds = new Set(filteredEmails.map(e => e.threadId));
     
     // 2. Group ALL emails from the full list by threadId, but only for matching threads
-    const groups: Record<string, typeof emailList> = {};
-    emailList.forEach(email => {
+    const groups: Record<string, typeof emails> = {};
+    emails.forEach(email => {
       if (matchingThreadIds.has(email.threadId)) {
         if (!groups[email.threadId]) groups[email.threadId] = [];
         groups[email.threadId].push(email);
@@ -646,7 +650,7 @@ export const EmailAnalysisPage: React.FC = () => {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [emailList, filteredEmails, sortKey, sortOrder]);
+  }, [emails, filteredEmails, sortKey, sortOrder]);
 
   return (
     <motion.div 
@@ -1001,6 +1005,12 @@ export const EmailAnalysisPage: React.FC = () => {
             </button>
           </motion.div>
         )}
+        {emails.length === 0 && (
+  <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-12 text-center mb-8">
+    <p className="text-white/60 text-lg">No active email stream.</p>
+    <p className="text-white/40 text-sm mt-2">Connect your Gmail to begin analysis.</p>
+  </div>
+)}
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -1658,7 +1668,7 @@ export const EmailAnalysisPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white/5 p-6 border border-white/10 space-y-4">
+          <div className="bg-white/5 p-3 gap-2 flex flex-col border border-white/10">
             <div className="flex justify-between items-center border-b border-white/5 pb-4">
               <div className="flex flex-col gap-1">
                 <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/40">Conversation Thread</p>
@@ -1683,7 +1693,7 @@ export const EmailAnalysisPage: React.FC = () => {
             </div>
             
             <div className="space-y-6 max-h-[300px] overflow-y-auto pr-2 hide-scrollbar">
-              {emailList
+              {emails
                 .filter(e => e.threadId === selectedEmail.threadId)
                 .sort((a, b) => a.id - b.id)
                 .map((msg) => (
@@ -2019,7 +2029,7 @@ export const EmailAnalysisPage: React.FC = () => {
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleGenerateReply()}
                         disabled={isGenerating || selectedEmail.sentiment !== 'Negative'}
-                        className="group relative flex items-center gap-3 px-12 py-4 bg-white text-black text-[11px] uppercase tracking-[0.3em] font-black hover:bg-neutral-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed overflow-hidden"
+                        className="backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 transition-all duration-200 rounded-full px-6 py-3 text-white disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/20 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                         {isGenerating ? <MotionIcon><Loader2 size={16} className="animate-spin" /></MotionIcon> : <MotionIcon><Sparkles size={16} /></MotionIcon>}
