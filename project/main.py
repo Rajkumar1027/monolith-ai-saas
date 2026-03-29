@@ -146,33 +146,32 @@ def health():
 def home():
     return {"message": "MONOLITH Intelligence Engine Online 🚀"}
 
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 @app.post("/register")
 async def register(user: dict):
     try:
         if db is None:
             raise HTTPException(status_code=503, detail="Database not connected")
         
-        username = user.get("username") or user.get("name")
-        email = user.get("email")
-        password = user.get("password")
+        username = user.get("username") or user.get("name") or ""
+        email = user.get("email", "")
+        password = user.get("password", "")
         
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email and password required")
         
-        # Fix: truncate password to 72 bytes max for bcrypt
-        password = password[:72]
+        # Truncate password to 72 bytes for bcrypt
+        password_bytes = password.encode("utf-8")[:72]
+        password = password_bytes.decode("utf-8", errors="ignore")
         
-        # Check if user already exists
         existing = db.users.find_one({"email": email})
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered")
         
-        # Hash password
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         hashed = pwd_context.hash(password)
         
-        # Save user
         db.users.insert_one({
             "username": username,
             "email": email,
