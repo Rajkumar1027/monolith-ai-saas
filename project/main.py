@@ -149,6 +149,7 @@ def home():
 
 @app.post("/register")
 def register(user: UserCreate):
+    logger.info(f"Registering user: {user.username}")
     existing_user = users_collection.find_one({"username": user.username})
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already registered")
