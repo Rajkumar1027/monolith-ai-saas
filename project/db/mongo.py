@@ -7,12 +7,18 @@ load_dotenv(override=True)
 
 MONGO_URL = os.getenv("MONGO_URL")
 
-ca = certifi.where()
-client = MongoClient(
-    MONGO_URL,
-    tls=True,
-    tlsAllowInvalidCertificates=True
-)
+try:
+    client = MongoClient(
+        os.getenv("MONGO_URL"),
+        tls=True,
+        tlsAllowInvalidCertificates=True,
+        serverSelectionTimeoutMS=5000
+    )
+    # Trigger a ping to confirm connection
+    client.admin.command('ping')
+    print("✅ MongoDB Connected")
+except Exception as e:
+    print(f"❌ MongoDB Connection Error: {str(e)}")
 
 db = client["ai_dashboard"]
 

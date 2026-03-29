@@ -71,11 +71,8 @@ def call_ai(prompt):
 
 origins = [
     "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
     "http://localhost:5176",
-    "https://monolith-ai-saas.onrender.com",
-    "https://monolith-ai-saas.vercel.app"
+    "https://monolith-ai-saas.onrender.com"
 ]
 
 app.add_middleware(
@@ -149,19 +146,23 @@ def home():
 
 @app.post("/register")
 def register(user: UserCreate):
-    logger.info(f"Registering user: {user.username}")
-    existing_user = users_collection.find_one({"username": user.username})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    
-    hashed_password = hash_password(user.password)
-    new_user = {
-        "username": user.username,
-        "email": user.email,
-        "password": hashed_password
-    }
-    users_collection.insert_one(new_user)
-    return {"message": "User registered successfully"}
+    try:
+        logger.info(f"Registering user: {user.username}")
+        existing_user = users_collection.find_one({"username": user.username})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        hashed_password = hash_password(user.password)
+        new_user = {
+            "username": user.username,
+            "email": user.email,
+            "password": hashed_password
+        }
+        users_collection.insert_one(new_user)
+        return {"message": "User registered successfully"}
+    except Exception as e:
+        logger.error(f"REGISTRATION_ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 @app.post("/login")
 async def login(user: UserLogin, response: Response):
