@@ -8,7 +8,11 @@ load_dotenv(override=True)
 MONGO_URL = os.getenv("MONGO_URL")
 
 ca = certifi.where()
-client = MongoClient(MONGO_URL, tlsCAFile=ca, tlsAllowInvalidCertificates=True)
+client = MongoClient(
+    MONGO_URL,
+    tls=True,
+    tlsAllowInvalidCertificates=True
+)
 
 db = client["ai_dashboard"]
 
