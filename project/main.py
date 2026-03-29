@@ -150,27 +150,36 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 @app.post("/register")
-async def register(user: dict):
+async def register(request: Request):
     try:
         if db is None:
             raise HTTPException(status_code=503, detail="Database not connected")
         
-        username = user.get("username") or user.get("name") or ""
-        email = user.get("email", "")
-        password = user.get("password", "")
+        # Accept both JSON and form data
+        try:
+            body = await request.json()
+        except:
+            body = {}
+            
+        username = (body.get("username") or body.get("name") or 
+                   body.get("user") or "").strip()
+        email = (body.get("email") or body.get("EMAIL") or "").strip()
+        password = (body.get("password") or body.get("PASSWORD") or "").strip()
+        
+        print(f"🔍 Registration attempt - email: {email}, body keys: {list(body.keys())}")
         
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email and password required")
         
         # Truncate password to 72 bytes for bcrypt
         password_bytes = password.encode("utf-8")[:72]
-        password = password_bytes.decode("utf-8", errors="ignore")
+        password_truncated = password_bytes.decode("utf-8", errors="ignore")
         
         existing = db.users.find_one({"email": email})
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered")
         
-        hashed = pwd_context.hash(password)
+        hashed = pwd_context.hash(password_truncated)
         
         db.users.insert_one({
             "username": username,
@@ -188,31 +197,39 @@ async def register(user: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/login")
-async def login(user: dict):
+async def login(request: Request):
     try:
         if db is None:
             raise HTTPException(status_code=503, detail="Database not connected")
         
-        email = user.get("email", "")
-        password = user.get("password", "")
+        # Accept both JSON and form data
+        try:
+            body = await request.json()
+        except:
+            body = {}
+        
+        # Try all possible field names
+        email = (body.get("email") or body.get("EMAIL") or 
+                body.get("username") or body.get("user") or "").strip()
+        password = (body.get("password") or body.get("PASSWORD") or 
+                   body.get("pass") or "").strip()
+        
+        print(f"🔍 Login attempt - email: {email}, body keys: {list(body.keys())}")
         
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email and password required")
         
-        # Find user
         existing = db.users.find_one({"email": email})
         if not existing:
             raise HTTPException(status_code=401, detail="Incorrect username or password")
         
-        # Truncate password same way as registration
         password_bytes = password.encode("utf-8")[:72]
-        password = password_bytes.decode("utf-8", errors="ignore")
+        password_truncated = password_bytes.decode("utf-8", errors="ignore")
         
-        # Verify password
         from passlib.context import CryptContext
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         
-        if not pwd_context.verify(password, existing["password"]):
+        if not pwd_context.verify(password_truncated, existing["password"]):
             raise HTTPException(status_code=401, detail="Incorrect username or password")
         
         print(f"✅ User logged in: {email}")
@@ -221,7 +238,8 @@ async def login(user: dict):
             "user": {
                 "email": email,
                 "username": existing.get("username", "")
-            }
+            },
+            "token": email
         }
         
     except HTTPException:
