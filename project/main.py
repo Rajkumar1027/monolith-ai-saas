@@ -188,26 +188,47 @@ async def register(user: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/login")
-async def login(user: UserLogin, response: Response):
-    db_user = users_collection.find_one({"username": user.username})
-    if not db_user or not verify_password(user.password, db_user["password"]):
-        logger.warning(f"Failed login attempt for user: {user.username}")
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    
-    access_token = create_access_token(data={"sub": user.username})
-    refresh_token = create_refresh_token(data={"sub": user.username})
-
-    # Set HTTP-only cookie for refresh token
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=IS_PROD,
-        samesite="Lax" if not IS_PROD else "None"
-    )
-
-    logger.info(f"User logged in: {user.username}")
-    return {"access_token": access_token, "token_type": "bearer"}
+async def login(user: dict):
+    try:
+        if db is None:
+            raise HTTPException(status_code=503, detail="Database not connected")
+        
+        email = user.get("email", "")
+        password = user.get("password", "")
+        
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password required")
+        
+        # Find user
+        existing = db.users.find_one({"email": email})
+        if not existing:
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+        
+        # Truncate password same way as registration
+        password_bytes = password.encode("utf-8")[:72]
+        password = password_bytes.decode("utf-8", errors="ignore")
+        
+        # Verify password
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        
+        if not pwd_context.verify(password, existing["password"]):
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+        
+        print(f"✅ User logged in: {email}")
+        return {
+            "message": "Login successful",
+            "user": {
+                "email": email,
+                "username": existing.get("username", "")
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ LOGIN_ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/refresh")
 async def refresh(request: Request):
