@@ -282,7 +282,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setBackendOffline(false)}
-              className="text-red-400/50 hover:text-red-400 transition-colors"
+              className="text-red-400/50 hover:text-red-400 transition-colors backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
             >
               <MotionIcon><AlertCircle size={16} /></MotionIcon>
             </motion.button>
@@ -305,7 +305,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
                 whileHover={{ scale: 1.05, color: "#ffffff" }}
                 whileTap={{ scale: 0.95 }}
                 onClick={resetSimulation}
-                className="flex items-center gap-2 text-[0.55rem] uppercase tracking-widest text-primary/60 font-black transition-all"
+                className="flex items-center gap-2 text-[0.55rem] uppercase tracking-widest text-primary/60 font-black transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
               >
                 <MotionIcon><RefreshCw size={10} /></MotionIcon> Reset Simulation
               </motion.button>
@@ -333,7 +333,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             className={cn(
-              "group relative glass-card h-56 flex flex-col items-center justify-center space-y-6 cursor-pointer overflow-hidden transition-all duration-500",
+              "group relative glass-card backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl h-56 flex flex-col items-center justify-center space-y-6 cursor-pointer overflow-hidden transition-all duration-500",
               uploadError ? "border-red-500/30 hover:border-red-500/50" : ""
             )}
           >
@@ -363,7 +363,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
                 whileTap={{ scale: 0.95 }}
                 disabled={isUploading}
                 className={cn(
-                  "glass-button-primary min-w-[140px] transition-all duration-300",
+                  "glass-button-primary min-w-[140px] backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 transition-all duration-200",
                   uploadError ? "bg-red-500 text-white hover:bg-red-600" : ""
                 )}
               >
@@ -398,7 +398,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
         <motion.div 
           whileHover={{ y: -8, scale: 1.01, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="glass-card p-8 flex flex-col justify-between group/card"
+          className="glass-card p-8 flex flex-col justify-between group/card backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl"
         >
           <div>
             <div className="flex justify-between items-start mb-10">
@@ -431,7 +431,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
         <motion.div 
           whileHover={{ y: -8, scale: 1.005, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="md:col-span-2 lg:col-span-3 glass-card p-8 relative overflow-hidden group/card"
+          className="md:col-span-2 lg:col-span-3 glass-card p-8 relative overflow-hidden group/card backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl"
         >
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
             <div>
@@ -448,7 +448,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setIsComparisonMode(!isComparisonMode)}
                   className={cn(
-                    "w-10 h-5 rounded-full border border-white/20 relative transition-all duration-500",
+                    "w-10 h-5 rounded-full border border-white/20 relative transition-all duration-500 backdrop-blur-md bg-white/10 hover:bg-white/20 active:scale-95",
                     isComparisonMode ? "bg-white" : "bg-white/10"
                   )}
                 >
@@ -469,7 +469,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setChartType(t)}
                     className={cn(
-                      "px-4 py-1.5 text-[0.6rem] font-black uppercase tracking-widest rounded-lg transition-all",
+                      "px-4 py-1.5 text-[0.6rem] font-black uppercase tracking-widest rounded-lg transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200",
                       chartType === t ? "bg-white text-black shadow-lg" : "text-white/60 hover:text-white hover:bg-white/10"
                     )}
                   >
@@ -488,7 +488,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
                       if (isUploaded) generateRandomData(tf);
                     }}
                     className={cn(
-                      "w-8 h-8 flex items-center justify-center uppercase tracking-widest text-[0.65rem] rounded-lg transition-all",
+                      "w-8 h-8 flex items-center justify-center uppercase tracking-widest text-[0.65rem] rounded-lg transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200",
                       timeframe === tf ? "bg-white/20 text-white font-black border border-white/30" : "text-white/50 hover:text-white/80 hover:bg-white/10"
                     )}
                   >
@@ -543,7 +543,7 @@ export const FeedbackAnalysisPage: React.FC = () => {
         <motion.div 
           whileHover={{ y: -8, scale: 1.005, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="lg:col-span-2 glass-card p-8 relative overflow-hidden group/card"
+          className="lg:col-span-2 glass-card p-8 relative overflow-hidden group/card backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl"
         >
           <div className="flex justify-between items-start mb-10">
             <div>

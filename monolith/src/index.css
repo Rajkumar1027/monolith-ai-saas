@@ -14,10 +14,14 @@
   color-scheme: dark;
 }
 
+html, body, #root {
+  background-color: #000000;
+  color: white;
+  min-height: 100vh;
+}
+
 body {
   margin: 0;
-  background-color: #050505;
-  color: white;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }

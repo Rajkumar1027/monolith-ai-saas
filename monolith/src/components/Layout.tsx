@@ -146,7 +146,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
         <div className="liquid-glass-pulse liquid-glass-pulse-purple" />
       </div>
 
-      <nav className="glass-nav fixed top-0 left-0 right-0 z-50">
+      <nav className="glass-nav fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-black/40 border-b border-white/10 sticky">
         <div className="flex justify-between items-center w-full px-8 h-18 max-w-7xl mx-auto">
           <div className="flex items-center gap-6">
             <div className="text-xl font-bold tracking-tighter text-primary font-headline cursor-pointer" onClick={() => setActiveTab('Feedback Analysis')}>MONOLITH</div>
@@ -210,7 +210,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                 whileHover={{ scale: 1.1, rotate: 5 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={toggleNotifications}
-                className="p-2 hover:bg-surface-container-highest/60 rounded transition-all duration-150 text-primary relative group"
+                className="p-2 hover:bg-surface-container-highest/60 rounded transition-all duration-150 text-primary relative group backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
               >
                 <motion.div
                   animate={badgeCount > 0 ? { rotate: [0, -10, 10, -10, 10, 0] } : {}}
@@ -299,7 +299,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
             <div className="relative" ref={profileRef}>
               <button 
                 onClick={toggleProfile}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-headline font-bold text-sm hover:scale-105 hover:shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)] transition-all duration-300 relative group"
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-headline font-bold text-sm hover:scale-105 hover:shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)] transition-all duration-300 relative group backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
               >
                 <span className="group-hover:text-white transition-colors">RJ</span>
                 <span className={cn(
@@ -389,7 +389,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                       <div className="px-3 py-1.5">
                         <span className="text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/70 font-black">Workspace</span>
                       </div>
-                      <button className="w-full px-3 py-2.5 flex items-center justify-between text-xs text-on-surface-variant hover:bg-surface-container-highest/60 hover:text-primary rounded-lg transition-all duration-200 group/item border border-transparent hover:border-primary/10">
+                      <button className="w-full px-3 py-2.5 flex items-center justify-between text-xs text-on-surface-variant hover:bg-surface-container-highest/60 hover:text-primary rounded-lg transition-all duration-200 group/item border border-transparent hover:border-primary/10 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-primary/10 transition-colors">
                             <MotionIcon><CreditCard size={16} className="group-hover/item:text-primary transition-colors" /></MotionIcon>
@@ -401,7 +401,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                           <MotionIcon><ChevronRight size={14} className="opacity-20 group-hover/item:opacity-100 group-hover/item:translate-x-1 transition-all" /></MotionIcon>
                         </div>
                       </button>
-                      <button className="w-full px-3 py-2.5 flex items-center justify-between text-xs text-on-surface-variant hover:bg-surface-container-highest/60 hover:text-primary rounded-lg transition-all duration-200 group/item border border-transparent hover:border-primary/10">
+                      <button className="w-full px-3 py-2.5 flex items-center justify-between text-xs text-on-surface-variant hover:bg-surface-container-highest/60 hover:text-primary rounded-lg transition-all duration-200 group/item border border-transparent hover:border-primary/10 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-primary/10 transition-colors">
                             <MotionIcon><Activity size={16} className="group-hover/item:text-primary transition-colors" /></MotionIcon>

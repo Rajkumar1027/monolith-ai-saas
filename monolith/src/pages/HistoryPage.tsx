@@ -68,7 +68,7 @@ export const HistoryPage: React.FC = () => {
       {/* DASHBOARD CHARTS */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* LINE CHART */}
-        <div className="glass-card p-6 h-72 flex flex-col group">
+        <div className="glass-card p-6 h-72 flex flex-col group backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl">
           <p className="text-[0.65rem] uppercase text-white/60 font-black tracking-widest mb-4">Urgency Trend</p>
           <div className="flex-1 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
@@ -81,7 +81,7 @@ export const HistoryPage: React.FC = () => {
         </div>
 
         {/* BAR CHART */}
-        <div className="glass-card p-6 h-72 flex flex-col group">
+        <div className="glass-card p-6 h-72 flex flex-col group backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl">
           <p className="text-[0.65rem] uppercase text-white/60 font-black tracking-widest mb-4">Topic Distribution</p>
           <div className="flex-1 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
@@ -95,7 +95,7 @@ export const HistoryPage: React.FC = () => {
         </div>
 
         {/* PIE CHART */}
-        <div className="glass-card p-6 h-72 flex flex-col group">
+        <div className="glass-card p-6 h-72 flex flex-col group backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl">
           <p className="text-[0.65rem] uppercase text-white/60 font-black tracking-widest mb-4">Urgency Ratio</p>
           <div className="flex-1 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">

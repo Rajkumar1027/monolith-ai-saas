@@ -749,7 +749,7 @@ export const EmailAnalysisPage: React.FC = () => {
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
               whileHover={{ y: -4, backgroundColor: "rgba(255, 255, 255, 0.05)", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}
-              className="bg-surface-container p-8 border-l border-white/10 group cursor-pointer transition-all duration-500"
+              className="bg-surface-container p-8 border-l border-white/10 group cursor-pointer transition-all duration-500 backdrop-blur-xl bg-white/5 rounded-2xl"
             >
               <div className="flex justify-between items-start mb-6">
                 <span className="text-xs tracking-[0.2em] text-on-surface-variant/70 uppercase">{stat.label}</span>
@@ -1006,7 +1006,7 @@ export const EmailAnalysisPage: React.FC = () => {
             <thead>
               <tr className="border-b border-white/10">
                 <th className="pb-6 text-[10px] tracking-[0.3em] text-on-surface-variant/60 uppercase w-12">
-                  <button onClick={toggleSelectAll} className="text-on-surface-variant/50 hover:text-primary transition-colors">
+                  <button onClick={toggleSelectAll} className="text-on-surface-variant/50 hover:text-primary transition-colors backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">
                     {selectedIds.length === filteredEmails.length && filteredEmails.length > 0 ? <MotionIcon><CircleCheck size={16} className="text-primary" /></MotionIcon> : <MotionIcon><Circle size={16} /></MotionIcon>}
                   </button>
                 </th>
@@ -1397,7 +1397,7 @@ export const EmailAnalysisPage: React.FC = () => {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, delay: 0.1, ease: [0.23, 1, 0.32, 1] }}
-        className="bg-surface-container-low p-12 border border-white/5 space-y-6 mb-24"
+        className="bg-surface-container-low p-12 space-y-6 mb-24 backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1416,7 +1416,7 @@ export const EmailAnalysisPage: React.FC = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-                className="md:col-span-2 bg-primary/5 border-l-2 border-primary p-4 relative overflow-hidden"
+                className="md:col-span-2 bg-primary/5 border-l-2 border-primary p-4 relative overflow-hidden backdrop-blur-xl border border-white/10 bg-white/5 rounded-2xl"
               >
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
                 <div className="flex items-center gap-2 mb-1">
@@ -1429,7 +1429,7 @@ export const EmailAnalysisPage: React.FC = () => {
             {urgencyScore !== null && (
               <motion.div 
                 whileHover={{ y: -4, scale: 1.02, boxShadow: "0 10px 20px rgba(0,0,0,0.2)" }}
-                className="bg-white/5 border border-white/10 p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300"
+                className="bg-white/5 border border-white/10 p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300 backdrop-blur-xl rounded-2xl"
               >
                 <div className="absolute top-0 right-0 p-2 opacity-10">
                   <div className="w-12 h-12 border-t border-r border-white"></div>
@@ -1461,7 +1461,7 @@ export const EmailAnalysisPage: React.FC = () => {
           </div>
 
           {sentimentDrift.length > 0 && (
-            <div className="bg-white/5 border border-white/10 p-6 space-y-6">
+            <div className="bg-white/5 border border-white/10 p-6 space-y-6 backdrop-blur-xl rounded-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MotionIcon><TrendingUp size={14} className="text-primary" /></MotionIcon>
@@ -1609,7 +1609,7 @@ export const EmailAnalysisPage: React.FC = () => {
                   onChange={(e) => setNewLabelInput(e.target.value)}
                   className="bg-transparent border-b border-white/10 text-[10px] uppercase tracking-widest py-1 px-2 focus:outline-none focus:border-primary transition-colors w-24"
                 />
-                <button type="submit" className="p-1 text-on-surface-variant/40 hover:text-primary transition-colors">
+                <button type="submit" className="p-1 text-on-surface-variant/40 hover:text-primary transition-colors backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">
                   <MotionIcon><Plus size={14} /></MotionIcon>
                 </button>
               </form>
@@ -1643,7 +1643,7 @@ export const EmailAnalysisPage: React.FC = () => {
                   })}
                   <button 
                     onClick={handleApplyAllSuggestions}
-                    className="ml-2 text-[8px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors underline underline-offset-4"
+                    className="ml-2 text-[8px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors underline underline-offset-4 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
                   >
                     Apply All
                   </button>
@@ -1652,9 +1652,9 @@ export const EmailAnalysisPage: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Escalate</button>
-              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Schedule</button>
-              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all">Archive</button>
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">Escalate</button>
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">Schedule</button>
+              <button className="text-[8px] uppercase tracking-[0.2em] px-3 py-1.5 border border-white/10 text-on-surface-variant/40 hover:text-primary hover:border-primary transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">Archive</button>
             </div>
           </div>
 
@@ -1954,7 +1954,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileTap={{ scale: 0.95 }}
                           onClick={handleImproveReply}
                           disabled={isImproving}
-                          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50"
+                          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
                         >
                           {isImproving ? <MotionIcon><Loader2 size={12} className="animate-spin" /></MotionIcon> : <MotionIcon><Sparkles size={12} /></MotionIcon>}
                           Improve
@@ -1972,7 +1972,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={handleCopyToClipboard}
-                          className="flex items-center gap-2 px-4 py-2 bg-white/5 text-on-surface-variant/60 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"
+                          className="flex items-center gap-2 px-4 py-2 bg-white/5 text-on-surface-variant/60 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
                         >
                           <MotionIcon><Copy size={12} /></MotionIcon>
                           Copy
@@ -1988,7 +1988,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={handleDiscardDraft}
-                          className="text-[10px] uppercase tracking-widest text-on-surface-variant/40 hover:text-red-500 transition-colors"
+                          className="text-[10px] uppercase tracking-widest text-on-surface-variant/40 hover:text-red-500 transition-colors backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
                         >
                           Discard
                         </motion.button>
@@ -1996,7 +1996,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={handleSaveDraft}
-                          className="flex items-center gap-2 px-6 py-3 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all"
+                          className="flex items-center gap-2 px-6 py-3 border border-white/10 text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
                         >
                           {saveStatus === 'saving' ? <MotionIcon><Loader2 size={12} className="animate-spin" /></MotionIcon> : 
                            saveStatus === 'saved' ? <MotionIcon><CheckCircle size={12} className="text-green-500" /></MotionIcon> : <MotionIcon><Edit3 size={12} /></MotionIcon>} 
@@ -2007,7 +2007,7 @@ export const EmailAnalysisPage: React.FC = () => {
                           whileTap={{ scale: 0.95 }}
                           onClick={handleSendReply}
                           disabled={isSending}
-                          className="flex items-center gap-2 px-10 py-3 bg-primary text-on-primary text-[10px] uppercase tracking-widest font-black hover:bg-neutral-200 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)]"
+                          className="flex items-center gap-2 px-10 py-3 bg-primary text-on-primary text-[10px] uppercase tracking-widest font-black hover:bg-neutral-200 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)] backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200"
                         >
                           {isSending ? <MotionIcon><Loader2 size={14} className="animate-spin" /></MotionIcon> : <MotionIcon><Send size={14} /></MotionIcon>}
                           Send Response
