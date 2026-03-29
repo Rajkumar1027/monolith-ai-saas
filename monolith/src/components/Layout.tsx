@@ -138,7 +138,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   return (
     <div 
       className="min-h-screen flex flex-col relative"
-      style={{ background: '#0B0F1A', minHeight: '100vh', width: '100vw' }}
+      style={{ background: '#000000', minHeight: '100vh', width: '100vw' }}
     >
       {/* iOS 26 Liquid Glass Background Layer */}
       <div className="liquid-glass-background">
