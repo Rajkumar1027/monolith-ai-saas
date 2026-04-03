@@ -11,6 +11,6 @@ start "Landing" cmd /k "cd /d C:\Users\grajk\OneDrive\Desktop\sentimental_rework
 
 echo All services starting...
 echo Backend:   http://localhost:8000/health
-echo Dashboard: http://localhost:5173
+echo Dashboard: http://localhost:5174
 echo Landing:   http://localhost:3000
 pause

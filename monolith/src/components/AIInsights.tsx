@@ -234,7 +234,11 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ startDate, endDate, isUp
         </form>
         <div className={cn("flex flex-wrap gap-3 transition-all", !isUploaded ? "opacity-50" : "opacity-100")}>
           <span className="text-[0.6rem] text-white/60 uppercase font-black tracking-[0.2em] self-center mr-2">Suggestions:</span>
-          {['Show top complaints', 'Summarize negative feedback'].map(suggestion => (
+          {[
+            'Predict future trends', 
+            'Summarize key issues',
+            'Draft a global response'
+          ].map(suggestion => (
             <motion.button 
               whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.15)", borderColor: "rgba(255,255,255,0.4)" }}
               whileTap={{ scale: 0.95 }}
@@ -247,7 +251,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ startDate, endDate, isUp
             </motion.button>
           ))}
         </div>
-        <p className="text-[0.55rem] text-white/30 uppercase tracking-[0.5em] text-center font-black pt-4">[ AI Model: Monolith-v4.2-Turbo Integration ]</p>
+        <p className="text-[0.55rem] text-white/30 uppercase tracking-[0.5em] text-center font-black pt-4">[ AI Model: Monolith-v1.5-Flash (Neural RAG) ]</p>
       </div>
     </motion.div>
   );

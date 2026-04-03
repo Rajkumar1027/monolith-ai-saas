@@ -8,7 +8,7 @@ import { ProfilePage } from './ProfilePage';
 import { SettingsPage } from './SettingsPage';
 
 export const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('Feedback Analysis');
+  const [activeTab, setActiveTab] = useState('Email Analysis');
 
   const renderContent = () => {
     switch (activeTab) {
@@ -23,7 +23,7 @@ export const Dashboard = () => {
       case 'Settings':
         return <SettingsPage />;
       default:
-        return <FeedbackAnalysisPage />;
+        return <EmailAnalysisPage />;
     }
   };
 

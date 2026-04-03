@@ -191,7 +191,7 @@ export const StartingPage = () => {
                 Deconstruct complex communication threads with neural intent detection and priority mapping.
               </p>
               <div 
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/login')}
                 className="mt-8 flex items-center gap-2 text-neon-cyan text-sm font-bold cursor-pointer group"
               >
                 EXPLORE <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -207,7 +207,7 @@ export const StartingPage = () => {
                 Real-time emotional resonance tracking across all customer touchpoints with 99.9% accuracy.
               </p>
               <div 
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/login')}
                 className="mt-8 flex items-center gap-2 text-neon-purple text-sm font-bold cursor-pointer group"
               >
                 EXPLORE <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -223,7 +223,7 @@ export const StartingPage = () => {
                 Context-aware response synthesis that maintains your brand voice while automating routine tasks.
               </p>
               <div 
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/login')}
                 className="mt-8 flex items-center gap-2 text-white text-sm font-bold cursor-pointer group"
               >
                 EXPLORE <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

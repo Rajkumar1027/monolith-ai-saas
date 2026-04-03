@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { safeFetch } from '../lib/api';
+import { checkBackendHealth, safeFetch } from '../lib/api';
 import { 
   User, Menu, Bell, Info, CheckCircle, AlertCircle, X, Settings, LogOut, 
-  ChevronRight, CreditCard, Activity, Shield, ExternalLink, Clock, UserCircle 
+  ChevronRight, CreditCard, Activity, Shield, ExternalLink, Clock, UserCircle,
+  Search, Command, Zap, Terminal, Navigation, CornerDownLeft
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,9 +35,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLogoutConfirming, setIsLogoutConfirming] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   const [badgeCount, setBadgeCount] = useState(initialNotifications.filter(n => !n.read).length);
   const [status, setStatus] = useState<'online' | 'away' | 'offline'>('online');
+  const [apiStatus, setApiStatus] = useState<'checking' | 'nominal' | 'disconnected'>('checking');
+
   const notificationRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -55,22 +59,51 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
       }
     };
 
-    const handleEscape = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Toggle Command Palette on Cmd+K or Ctrl+K
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+
       if (event.key === 'Escape') {
         setIsNotificationsOpen(false);
         setIsProfileOpen(false);
         setIsLogoutConfirming(false);
         setIsMobileMenuOpen(false);
+        setIsCommandPaletteOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleKeyDown);
     };
+  }, []);
+
+  useEffect(() => {
+    // API Health Monitor Simulation/Real Ping
+    const checkHealth = async () => {
+      setApiStatus('checking');
+      // Forced delay to show the "CONNECTING..." state as requested
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      try {
+        const isHealthy = await checkBackendHealth();
+        if (isHealthy) {
+          setApiStatus('nominal');
+        } else {
+          setApiStatus('disconnected');
+        }
+      } catch (err) {
+        setApiStatus('disconnected');
+      }
+    };
+    
+    checkHealth();
   }, []);
 
   const toggleNotifications = () => {
@@ -185,24 +218,46 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
             ))}
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-sm group focus-within:border-primary/40 transition-all">
-            <MotionIcon><Activity size={12} className="text-on-surface-variant/20 group-focus-within:text-primary transition-colors" /></MotionIcon>
-            <input 
-              type="text" 
-              placeholder="GLOBAL SEARCH..." 
-              className="bg-transparent border-none outline-none text-[9px] uppercase tracking-widest font-bold placeholder:text-on-surface-variant/20 w-32 focus:w-48 transition-all"
-            />
-          </div>
+          <button 
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className="hidden lg:flex items-center gap-3 px-4 py-1.5 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 hover:border-primary/40 transition-all group"
+          >
+            <div className="flex items-center gap-2">
+              <Search size={12} className="text-on-surface-variant/40 group-hover:text-primary transition-colors" />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 group-hover:text-on-surface transition-colors">Global Search...</span>
+            </div>
+            <div className="flex items-center gap-1 ml-4">
+              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[8px] text-on-surface-variant/40 font-black">⌘</span>
+              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[8px] text-on-surface-variant/40 font-black">K</span>
+            </div>
+          </button>
 
           <div className="flex items-center gap-4">
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, ease: [0.23, 1, 0.32, 1] }}
-              className="hidden xl:flex items-center gap-2 px-3 py-1 bg-green-500/5 border border-green-500/10 rounded-full"
+              className={cn(
+                "hidden xl:flex items-center gap-2 px-3 py-1 rounded-full border transition-all duration-300",
+                apiStatus === 'checking' && "bg-yellow-500/5 border-yellow-500/10",
+                apiStatus === 'nominal' && "bg-green-500/5 border-green-500/10",
+                apiStatus === 'disconnected' && "bg-red-500/5 border-red-500/20"
+              )}
             >
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-[8px] uppercase tracking-widest text-green-500 font-black">System Nominal</span>
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full transition-all duration-300",
+                apiStatus === 'checking' && "bg-yellow-500 animate-pulse",
+                apiStatus === 'nominal' && "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]",
+                apiStatus === 'disconnected' && "bg-red-500"
+              )}></div>
+              <span className={cn(
+                "text-[8px] uppercase tracking-widest font-black transition-colors duration-300",
+                apiStatus === 'checking' && "text-yellow-500",
+                apiStatus === 'nominal' && "text-green-500",
+                apiStatus === 'disconnected' && "text-red-500"
+              )}>
+                {apiStatus === 'checking' ? 'Connecting...' : apiStatus === 'nominal' ? 'System Nominal' : 'API Offline'}
+              </span>
             </motion.div>
             {/* Notification Bell */}
             <div className="relative" ref={notificationRef}>
@@ -314,7 +369,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 mt-3 w-72 bg-surface-container-low border border-outline-variant/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-xl overflow-hidden z-50"
+                   className="absolute right-0 mt-3 w-72 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.8)] rounded-xl overflow-hidden z-50"
                   >
                     {/* Header Section */}
                     <div className="p-5 border-b border-outline-variant/10 bg-surface-container-lowest relative overflow-hidden">
@@ -389,18 +444,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                       <div className="px-3 py-1.5">
                         <span className="text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/70 font-black">Workspace</span>
                       </div>
-                      <button className="w-full px-3 py-2.5 flex items-center justify-between text-xs text-on-surface-variant hover:bg-surface-container-highest/60 hover:text-primary rounded-lg transition-all duration-200 group/item border border-transparent hover:border-primary/10 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-primary/10 transition-colors">
-                            <MotionIcon><CreditCard size={16} className="group-hover/item:text-primary transition-colors" /></MotionIcon>
-                          </div>
-                          <span className="font-medium">Billing & Subscription</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-[8px] text-green-500 font-bold">PRO</span>
-                          <MotionIcon><ChevronRight size={14} className="opacity-20 group-hover/item:opacity-100 group-hover/item:translate-x-1 transition-all" /></MotionIcon>
-                        </div>
-                      </button>
                       <button className="w-full px-3 py-2.5 flex items-center justify-between text-xs text-on-surface-variant hover:bg-surface-container-highest/60 hover:text-primary rounded-lg transition-all duration-200 group/item border border-transparent hover:border-primary/10 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20 active:scale-95 duration-200">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-primary/10 transition-colors">
@@ -518,6 +561,128 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           Monolith Architecture © 2024
         </p>
       </footer>
+      <AnimatePresence>
+        {isCommandPaletteOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[10vh]"
+            onClick={() => setIsCommandPaletteOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              className="w-full max-w-2xl bg-[#0a0a0a]/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center gap-4 px-5 py-4 border-b border-white/5">
+                <Search size={20} className="text-primary animate-pulse" />
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="What would you like to do?"
+                  className="bg-transparent border-none outline-none text-white text-lg w-full placeholder:text-white/20"
+                />
+              </div>
+
+              {/* Sections */}
+              <div className="max-h-[60vh] overflow-y-auto p-2 hide-scrollbar">
+                {/* NEURAL ACTIONS */}
+                <div className="mb-4">
+                  <div className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Neural Actions</div>
+                  <div className="space-y-1">
+                    {[
+                      { icon: <Zap size={14} />, label: 'Generate Draft for Astra Ventures', shortcut: '⌘D' },
+                      { icon: <Zap size={14} />, label: 'Run Sentiment Batch Analysis', shortcut: '⌘R' },
+                    ].map((item, i) => (
+                      <button key={i} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition-all group">
+                        <div className="flex items-center gap-3">
+                          <div className="text-white/30 group-hover:text-primary transition-colors">{item.icon}</div>
+                          <span className="text-sm text-white/70 group-hover:text-white transition-colors">{item.label}</span>
+                        </div>
+                        <span className="text-[10px] text-white/10 group-hover:text-white/30 font-mono">{item.shortcut}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* NAVIGATION */}
+                <div className="mb-4">
+                  <div className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Navigation</div>
+                  <div className="space-y-1">
+                    {[
+                      { icon: <Navigation size={14} />, label: 'Go to Feedback Analysis', shortcut: 'G F' },
+                      { icon: <Navigation size={14} />, label: 'Go to Email Analysis', shortcut: 'G E' },
+                      { icon: <Navigation size={14} />, label: 'Go to System History', shortcut: 'G H' },
+                    ].map((item, i) => (
+                      <button 
+                        key={i} 
+                        onClick={() => {
+                          setActiveTab(item.label.split('Go to ')[1]);
+                          setIsCommandPaletteOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition-all group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-white/30 group-hover:text-primary transition-colors">{item.icon}</div>
+                          <span className="text-sm text-white/70 group-hover:text-white transition-colors">{item.label}</span>
+                        </div>
+                        <span className="text-[10px] text-white/10 group-hover:text-white/30 font-mono">{item.shortcut}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* RECENT INTERCEPTS */}
+                <div>
+                  <div className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Recent Intercepts</div>
+                  <div className="space-y-1">
+                    {[
+                      { icon: <Terminal size={14} />, label: 'Ticket #NC-8821 (NovaCraft)', detail: 'High Priority' },
+                      { icon: <Terminal size={14} />, label: 'Lead Entry: Zenith Tech', detail: 'Processing' },
+                    ].map((item, i) => (
+                      <button key={i} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition-all group">
+                        <div className="flex items-center gap-3">
+                          <div className="text-white/30 group-hover:text-primary transition-colors">{item.icon}</div>
+                          <div className="flex flex-col items-start">
+                            <span className="text-sm text-white/70 group-hover:text-white transition-colors">{item.label}</span>
+                            <span className="text-[9px] text-white/10 group-hover:text-white/20 font-bold uppercase tracking-wider">{item.detail}</span>
+                          </div>
+                        </div>
+                        <CornerDownLeft size={12} className="text-white/5 group-hover:text-primary transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5 text-white/20 font-mono text-[9px]">
+                    <span className="px-1 py-0.5 rounded bg-white/5 border border-white/10 uppercase">↑↓</span>
+                    <span className="uppercase tracking-widest font-black">Navigate</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-white/20 font-mono text-[9px]">
+                    <span className="px-1 py-0.5 rounded bg-white/5 border border-white/10">↵</span>
+                    <span className="uppercase tracking-widest font-black">Select</span>
+                  </div>
+                </div>
+                <div className="text-[9px] text-white/10 uppercase tracking-widest font-black">Monolith | Search v1.0.2</div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Global styles */}
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 };

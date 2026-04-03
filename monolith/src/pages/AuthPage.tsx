@@ -322,6 +322,20 @@ export const AuthPage: React.FC = () => {
               </span>
               <div className="liquid-glass-streak" />
             </motion.button>
+
+            {/* Dev Mode Bypass */}
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('monolith_auth', 'true');
+                localStorage.setItem('monolith_token', 'dev-token-99');
+                localStorage.setItem('monolith_user', JSON.stringify({ email: 'dev@monolith.ai', username: 'DEV_USER' }));
+                window.location.href = '/dashboard';
+              }}
+              className="w-full mt-4 py-3 border border-white/5 text-[9px] text-white/20 hover:text-neon-cyan hover:border-neon-cyan/20 transition-all font-mono uppercase tracking-[0.3em] rounded-xl hover:bg-white/[0.02]"
+            >
+              [ BYPASS_AUTH_GATE_DEV_ONLY ]
+            </button>
           </form>
 
           <div className="mt-12 space-y-6">

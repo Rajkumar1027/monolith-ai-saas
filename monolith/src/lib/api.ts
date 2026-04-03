@@ -3,7 +3,7 @@
  * All fetch calls use VITE_BASE_URL from the .env file.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://monolith-ai-saas.onrender.com';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /** Error thrown when the backend is unreachable */
 export class BackendOfflineError extends Error {
@@ -62,9 +62,9 @@ export async function safeFetch(url: string, options: RequestInit = {}): Promise
             // Retry the original request
             return makeRequest();
           } else {
-            // Refresh failed - session expired
+            // Refresh failed — clear stale token and throw; let callers handle gracefully
             localStorage.removeItem('access_token');
-            window.location.href = '/login';
+            isRefreshing = false;
             throw new Error('Session expired');
           }
         } catch (error) {

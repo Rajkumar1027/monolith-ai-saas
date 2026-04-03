@@ -22,8 +22,8 @@
 
 ### Fix 4 — CORS Connectivity Blocks
 - Problem: Landing page (5174) blocked from calling backend
-- Cause: CORS whitelist only included Dashboard (5173)
-- Fix: Expanded whitelist to ports 5173, 5174, 3000
+- Cause: CORS whitelist only included Dashboard (5174)
+- Fix: Expanded whitelist to ports 5174, 5174, 3000
 - Result: All frontends communicate with backend
 
 ### Fix 5 — Directory & Environment Mismatch
@@ -35,7 +35,7 @@
 
 ## Current Status
 - Backend:      http://localhost:8000  ✅ ONLINE
-- Dashboard:    http://localhost:5173  ✅ ONLINE  
+- Dashboard:    http://localhost:5174  ✅ ONLINE  
 - Landing Page: http://localhost:3000  ✅ ONLINE
 - MongoDB:      Connected ✅
 - Pinecone:     Initialized ✅
@@ -63,5 +63,5 @@ npm run dev
 
 ### Verify
 - http://localhost:8000/health → {"status":"ok"}
-- http://localhost:5173 → Dashboard (ENGINE ONLINE)
+- http://localhost:5174 → Dashboard (ENGINE ONLINE)
 - http://localhost:3000 → Landing Page

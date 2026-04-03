@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
+// Nav items map to real dashboard sub-routes (all require auth via ProtectedRoute)
 const navItems = [
-  { name: 'Engine', path: '/engine' },
-  { name: 'Intelligence', path: '/intelligence' },
-  { name: 'Network', path: '/network' },
-  { name: 'Docs', path: '/docs' },
+  { name: 'Engine',       path: '/dashboard' },
+  { name: 'Intelligence', path: '/dashboard/email' },
+  { name: 'Network',      path: '/dashboard/sentiment' },
+  { name: 'Docs',         path: '/dashboard/auto-reply' },
 ];
 
 export const Navbar: React.FC = () => {
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const isAuthenticated = localStorage.getItem('monolith_auth') === 'true';
 
   return (
     <motion.nav 
@@ -80,9 +83,22 @@ export const Navbar: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="hidden lg:block px-4 py-2 rounded-lg border border-white/10 text-xs font-mono text-white/40 hover:text-white hover:bg-white/5 transition-all">
-          STABLE
-        </button>
+        {/* Show LOGIN button if not authenticated, or a dashboard shortcut if auth'd */}
+        {isAuthenticated ? (
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="hidden lg:block px-4 py-2 rounded-lg border border-neon-cyan/30 text-xs font-mono text-neon-cyan hover:bg-neon-cyan/10 transition-all"
+          >
+            DASHBOARD
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate('/login')}
+            className="hidden lg:block px-4 py-2 rounded-lg border border-white/10 text-xs font-mono text-white/40 hover:text-white hover:bg-white/5 transition-all"
+          >
+            LOGIN
+          </button>
+        )}
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple p-[1px]">
           <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-[10px] font-bold">
             JD

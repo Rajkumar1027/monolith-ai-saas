@@ -8,13 +8,20 @@ import requests
 import hashlib
 import logging
 import sentry_sdk
+import base64
+from bs4 import BeautifulSoup
 import pandas as pd
+from transformers import pipeline
+
+# Initialize the Hugging Face sentiment model (Loads into RAM on startup)
+print("Loading Neural Engine...")
+sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+print("Neural Engine Online. 🟢")
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from project.ai.hf_ai import analyze_text as generate_answer
 from project.db.pinecone_db import store_feedback, search_feedback
 from project.db.mongo import collection, users_collection, db
 from project.auth import hash_password, verify_password, create_access_token, create_refresh_token, get_current_user
@@ -72,7 +79,7 @@ def call_ai(prompt):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
+        "http://localhost:5174",
         "http://localhost:5174",
         "http://localhost:5175",
         "http://localhost:5176",
@@ -117,30 +124,7 @@ class UserLogin(BaseModel):
 
 @app.get("/health")
 def health():
-    mongo_status = "unknown"
-    pinecone_status = "unknown"
-    
-    try:
-        from project.db import pinecone_db
-        pinecone_status = "ready" if pinecone_db.index else "disabled"
-    except Exception as e:
-        logger.warning(f"Pinecone health check failed: {e}")
-        pinecone_status = "disabled"
-    
-    try:
-        # Check mongo connection via the imported collection
-        mongo_status = "connected" if users_collection.database.name else "error"
-    except Exception as e:
-        logger.warning(f"Mongo health check failed: {e}")
-        mongo_status = "error"
-    
-    return {
-        "status": "ok",
-        "services": {
-            "mongo": mongo_status,
-            "pinecone": pinecone_status
-        }
-    }
+    return {"status": "ok"}
 
 @app.get("/")
 def home():
@@ -273,6 +257,120 @@ async def logout(response: Response):
     response.delete_cookie("refresh_token")
     return {"message": "Logged out successfully"}
 
+# ── Google OAuth 2.0 Callback ──────────────────────────────────────────────────
+@app.post("/auth/google/callback")
+async def google_oauth_callback(request: Request):
+    """
+    Receives the authorization code from the React frontend,
+    exchanges it with Google for tokens, extracts the user's email,
+    and returns a MONOLITH JWT access token.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request body")
+
+    code = (body.get("code") or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="Authorization code is required")
+
+    google_client_id     = os.getenv("GOOGLE_CLIENT_ID")
+    google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    google_redirect_uri  = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:5174/auth/callback")
+    print(f"DEBUG redirect_uri being sent to Google: {google_redirect_uri}")
+
+    if not google_client_id or not google_client_secret:
+        logger.error("Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in environment")
+        raise HTTPException(status_code=500, detail="OAuth not configured on server")
+
+    # Step 1 — Exchange the code for tokens with Google
+    token_response = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code":          code,
+            "client_id":     google_client_id,
+            "client_secret": google_client_secret,
+            "redirect_uri":  "http://localhost:5174/auth/callback",
+            "grant_type":    "authorization_code",
+        },
+        timeout=10,
+    )
+
+    if not token_response.ok:
+        logger.error(f"Google token exchange failed: {token_response.text}")
+        raise HTTPException(status_code=401, detail="Google token exchange failed")
+
+    google_tokens       = token_response.json()
+    google_access_token = google_tokens.get("access_token")
+    google_refresh_token = google_tokens.get("refresh_token")  # Only present on first auth
+
+    logger.info(
+        f"[OAuth] access_token={'YES' if google_access_token else 'NO'} | "
+        f"refresh_token={'YES' if google_refresh_token else 'NOT PROVIDED (subsequent login)'}"
+    )
+
+    if not google_access_token:
+        raise HTTPException(status_code=401, detail="No access token returned by Google")
+
+    # Step 2 — Fetch the user's profile from Google
+    profile_response = requests.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {google_access_token}"},
+        timeout=10,
+    )
+
+    if not profile_response.ok:
+        logger.error(f"Google profile fetch failed: {profile_response.text}")
+        raise HTTPException(status_code=401, detail="Failed to fetch Google profile")
+
+    profile = profile_response.json()
+    email   = profile.get("email", "")
+    name    = profile.get("name", email.split("@")[0])
+
+    if not email:
+        raise HTTPException(status_code=401, detail="Could not retrieve email from Google")
+
+    # Step 3 — Upsert user in MongoDB (refresh token vault)
+    if db is not None:
+        try:
+            # Always update the live access token and profile info
+            update_data = {
+                "email":               email,
+                "username":            name,
+                "oauth":               "google",
+                "google_access_token": google_access_token,
+            }
+
+            # CRITICAL: Only persist the refresh token if Google actually sent one.
+            # Google only sends it on the VERY FIRST authorization (or after revoking access).
+            # If we blindly set it to None on subsequent logins we lose offline access forever.
+            if google_refresh_token:
+                update_data["google_refresh_token"] = google_refresh_token
+                logger.info(f"[OAuth] Refresh token saved for: {email}")
+            else:
+                logger.info(f"[OAuth] No new refresh token — preserving existing vault for: {email}")
+
+            db.users.update_one(
+                {"email": email},
+                {"$set": update_data},
+                upsert=True,
+            )
+        except Exception as e:
+            logger.warning(f"User upsert failed (non-fatal): {e}")
+
+    # Step 4 — Issue a MONOLITH JWT (same format used by /login)
+    access_token = create_access_token(data={"sub": email})
+
+    logger.info(f"✅ Google OAuth success for: {email}")
+    return {
+        "access_token": access_token,
+        "token_type":   "bearer",
+        "user": {
+            "email":    email,
+            "username": name,
+        },
+    }
+
 
 @app.post("/analyze")
 @limiter.limit("5/minute")
@@ -309,18 +407,20 @@ async def analyze(request: Request, file: UploadFile = File(...), current_user: 
         cached_result["_id"] = str(cached_result["_id"])
         return cached_result
 
-    # 3. Call AI
+    # 3. Call AI with improved data sampling (50 random rows for better trends)
+    sample_df = df.sample(n=min(len(df), 50), random_state=42)
     prompt = f"""
-    Analyze this customer feedback data:
-    {df.head(10).to_string()}
+    Analyze this customer feedback dataset (Sample size: {len(sample_df)} rows):
+    {sample_df.to_string()}
 
+    Act as 'MONOLITH Neural Intelligence'. Provide a deep enterprise-grade analysis.
     Return STRICT JSON ONLY format:
     {{
       "urgency_score": number (1-10),
-      "topic": "string",
-      "summary": "string",
-      "issues": ["list of problems"],
-      "auto_reply": "string"
+      "topic": "Main high-level theme",
+      "summary": "1-2 sentence executive overview",
+      "issues": ["list of 3-5 specific problems found in the text"],
+      "auto_reply": "A professional, empathetic draft response addressing the main concern"
     }}
     """
 
@@ -367,13 +467,33 @@ async def ask(request: Request, question: str, current_user: dict = Depends(get_
     results = search_feedback(question)
 
     context = ""
-    for r in results['matches']:
-        context += r['metadata']['text'] + "\n"
+    for r in results.get('matches', []):
+        context += r['metadata'].get('text', '') + "\n"
 
-    answer = generate_answer(question, context)
+    # Use Gemini for a real RAG experience instead of a local sentiment model
+    prompt = f"""
+    Act as the MONOLITH Intelligence Assistant. 
+    Use the following customer feedback context to answer the user question.
+    If the context is empty, politely ask to upload a data file first.
+    
+    [CONTEXT]
+    {context}
+    
+    [USER QUESTION]
+    {question}
+    
+    Provide a professional, data-driven answer in natural language (Markdown allowed).
+    """
+
+    try:
+        ai_response = call_ai(prompt)
+        answer = ai_response["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as e:
+        logger.error(f"Assistant Query Error: {e}")
+        answer = "I'm having trouble accessing my neural core. Please try again in a moment."
 
     return {
-        "context": context,
+        "context": context[:500] + "...", # Truncate for frontend bandwidth
         "answer": answer
     }
 
@@ -384,6 +504,109 @@ def get_history(current_user: dict = Depends(get_current_user)):
     data = list(collection.find({"owner": email}, {"_id": 0}))
     old_data = list(collection.find({"username": current_user.get("username"), "owner": {"$exists": False}}, {"_id": 0}))
     return data + old_data
+
+# Helper function to decode and clean Gmail bodies
+def extract_clean_text(payload):
+    body_data = ""
+    # Gmail payloads can be nested in 'parts'
+    if 'parts' in payload:
+        for part in payload['parts']:
+            if part['mimeType'] == 'text/plain':
+                body_data = part['body'].get('data', '')
+                break  # We prefer plain text!
+            elif part['mimeType'] == 'text/html':
+                body_data = part['body'].get('data', '')
+    else:
+        # Sometimes it's right at the top level
+        body_data = payload.get('body', {}).get('data', '')
+
+    if not body_data:
+        return "No text found."
+
+    try:
+        # Decode the Base64URL string
+        clean_bytes = base64.urlsafe_b64decode(body_data + '===')
+        raw_text = clean_bytes.decode('utf-8')
+        
+        # Strip away all the nasty HTML tags using BeautifulSoup
+        soup = BeautifulSoup(raw_text, 'html.parser')
+        clean_text = soup.get_text(separator=' ', strip=True)
+        return clean_text
+    except Exception as e:
+        print("Decoding error:", e)
+        return "Failed to decode email."
+
+@app.get("/api/emails/sync")
+async def sync_live_emails(user_email: str):
+    """
+    Pulls the latest 5 emails, deep-decodes the body, and sanitizes the text for AI.
+    """
+    user = db.users.find_one({"email": user_email})
+    if not user or not user.get("google_access_token"):
+        raise HTTPException(status_code=401, detail="Google account not connected.")
+
+    access_token = user["google_access_token"]
+    headers = {"Authorization": f"Bearer {access_token}"}
+    
+    # Get the latest 5 message IDs
+    gmail_list_url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5"
+    response = requests.get(gmail_list_url, headers=headers)
+    
+    if response.status_code == 401:
+        raise HTTPException(status_code=401, detail="Google token expired.")
+        
+    messages = response.json().get("messages", [])
+    if not messages:
+        return {"status": "success", "message": "Inbox is empty.", "emails": []}
+    
+    email_data = []
+    for msg in messages:
+        msg_id = msg['id']
+        detail_url = f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_id}"
+        detail_res = requests.get(detail_url, headers=headers)
+        
+        if detail_res.status_code == 200:
+            payload = detail_res.json().get("payload", {})
+            
+            # Extract Headers
+            headers_list = payload.get("headers", [])
+            subject = next((h["value"] for h in headers_list if h["name"] == "Subject"), "No Subject")
+            sender = next((h["value"] for h in headers_list if h["name"] == "From"), "Unknown Sender")
+            
+            # Run the Deep Sanitization!
+            clean_body = extract_clean_text(payload)
+            
+            # --- THE NEURAL PASS ---
+            # AI models have token limits. We grab the first ~1500 characters to be safe.
+            short_text = clean_body[:1500] 
+            
+            # Default fallback in case the email is literally empty
+            ai_label = "NEUTRAL"
+            ai_score = 0.0
+            
+            if len(short_text.strip()) > 5:
+                try:
+                    analysis = sentiment_analyzer(short_text)[0]
+                    ai_label = analysis['label']  # 'POSITIVE' or 'NEGATIVE'
+                    ai_score = round(analysis['score'], 4) # Confidence score (e.g., 0.999)
+                except Exception as e:
+                    print(f"AI Engine skipped email due to error: {e}")
+
+            email_data.append({
+                "id": msg_id,
+                "sender": sender,
+                "subject": subject,
+                "full_text": clean_body,
+                "sentiment": ai_label,
+                "confidence": ai_score
+            })
+
+    return {
+        "status": "success", 
+        "count": len(email_data),
+        "emails": email_data
+    }
+
 if __name__ == "__main__":
     import uvicorn
     import os
