@@ -287,7 +287,7 @@ async def google_oauth_callback(request: Request):
             "code":          code,
             "client_id":     google_client_id,
             "client_secret": google_client_secret,
-            "redirect_uri":  "http://localhost:5174/auth/callback",
+            "redirect_uri":  os.getenv("GOOGLE_REDIRECT_URI", "https://monolith-ai-saas.onrender.com/auth/google/callback"),
             "grant_type":    "authorization_code",
         },
         timeout=10,
