@@ -253,19 +253,21 @@ async def logout(response: Response):
     return {"message": "Logged out successfully"}
 
 # ── Google OAuth 2.0 Callback ──────────────────────────────────────────────────
-@app.post("/auth/google/callback")
+@app.api_route("/auth/google/callback", methods=["GET", "POST"])
 async def google_oauth_callback(request: Request):
     """
     Receives the authorization code from the React frontend,
     exchanges it with Google for tokens, extracts the user's email,
     and returns a MONOLITH JWT access token.
     """
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid request body")
+    code = request.query_params.get("code", "")
+    if not code:
+        try:
+            body = await request.json()
+            code = (body.get("code") or "").strip()
+        except Exception:
+            pass
 
-    code = (body.get("code") or "").strip()
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code is required")
 
