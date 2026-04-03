@@ -11,12 +11,7 @@ import sentry_sdk
 import base64
 from bs4 import BeautifulSoup
 import pandas as pd
-from transformers import pipeline
-
-# Initialize the Hugging Face sentiment model (Loads into RAM on startup)
-print("Loading Neural Engine...")
-sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
-print("Neural Engine Online. 🟢")
+from textblob import TextBlob
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -576,21 +571,25 @@ async def sync_live_emails(user_email: str):
             # Run the Deep Sanitization!
             clean_body = extract_clean_text(payload)
             
-            # --- THE NEURAL PASS ---
-            # AI models have token limits. We grab the first ~1500 characters to be safe.
-            short_text = clean_body[:1500] 
-            
-            # Default fallback in case the email is literally empty
+            # --- TEXTBLOB SENTIMENT PASS ---
+            short_text = clean_body[:1500]
+
             ai_label = "NEUTRAL"
             ai_score = 0.0
-            
+
             if len(short_text.strip()) > 5:
                 try:
-                    analysis = sentiment_analyzer(short_text)[0]
-                    ai_label = analysis['label']  # 'POSITIVE' or 'NEGATIVE'
-                    ai_score = round(analysis['score'], 4) # Confidence score (e.g., 0.999)
+                    analysis = TextBlob(short_text)
+                    score = analysis.sentiment.polarity
+                    if score > 0.1:
+                        ai_label = "POSITIVE"
+                    elif score < -0.1:
+                        ai_label = "NEGATIVE"
+                    else:
+                        ai_label = "NEUTRAL"
+                    ai_score = round(abs(score), 4)
                 except Exception as e:
-                    print(f"AI Engine skipped email due to error: {e}")
+                    print(f"Sentiment engine skipped email due to error: {e}")
 
             email_data.append({
                 "id": msg_id,
