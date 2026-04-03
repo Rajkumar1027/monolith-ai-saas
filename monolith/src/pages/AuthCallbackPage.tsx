@@ -212,25 +212,39 @@ export const AuthCallbackPage = () => {
   const [status, setStatus] = useState<Status>('processing');
 
   useEffect(() => {
-    const code = searchParams.get('code');
+    const token = searchParams.get('token'); // Fast path: backend already exchanged code (GET flow)
+    const code  = searchParams.get('code');  // Slow path: frontend received code directly (POST flow)
     const error = searchParams.get('error'); // Google sends ?error=access_denied on rejection
 
-    if (error || !code) {
+    if (error) {
+      setStatus('error');
+      return;
+    }
+
+    // ── Fast path: backend redirected here with the JWT already minted ──────────
+    if (token) {
+      localStorage.setItem('monolith_token', token);
+      localStorage.setItem('monolith_auth', 'true');
+      setStatus('success');
+      setTimeout(() => navigate('/dashboard', { replace: true }), 1200);
+      return;
+    }
+
+    // ── Slow path: frontend got the code directly from Google (local dev) ───────
+    if (!code) {
       setStatus('error');
       return;
     }
 
     exchangeToken(code)
       .then((data) => {
-        // Persist tokens — keep the same pattern as the rest of the app
         localStorage.setItem('monolith_token', data.access_token);
         localStorage.setItem('monolith_auth', 'true');
         setStatus('success');
-        // Brief success flash, then navigate
         setTimeout(() => navigate('/dashboard', { replace: true }), 1200);
       })
-      .catch((error: unknown) => {
-        console.error('OAuth Exchange Failed:', error);
+      .catch((err: unknown) => {
+        console.error('OAuth Exchange Failed:', err);
         setStatus('error');
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps

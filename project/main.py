@@ -7,7 +7,6 @@ import json
 import requests
 import hashlib
 import logging
-import sentry_sdk
 import base64
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -74,7 +73,6 @@ def call_ai(prompt):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5174",
         "http://localhost:5174",
         "http://localhost:5175",
         "http://localhost:5176",
@@ -273,8 +271,7 @@ async def google_oauth_callback(request: Request):
 
     google_client_id     = os.getenv("GOOGLE_CLIENT_ID")
     google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-    google_redirect_uri  = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:5174/auth/callback")
-    print(f"DEBUG redirect_uri being sent to Google: {google_redirect_uri}")
+    google_redirect_uri  = os.getenv("GOOGLE_REDIRECT_URI", "https://monolith-ai-saas.onrender.com/auth/google/callback")
 
     if not google_client_id or not google_client_secret:
         logger.error("Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in environment")
@@ -287,7 +284,7 @@ async def google_oauth_callback(request: Request):
             "code":          code,
             "client_id":     google_client_id,
             "client_secret": google_client_secret,
-            "redirect_uri":  os.getenv("GOOGLE_REDIRECT_URI", "https://monolith-ai-saas.onrender.com/auth/google/callback"),
+            "redirect_uri":  google_redirect_uri,
             "grant_type":    "authorization_code",
         },
         timeout=10,
@@ -359,6 +356,15 @@ async def google_oauth_callback(request: Request):
     access_token = create_access_token(data={"sub": email})
 
     logger.info(f"✅ Google OAuth success for: {email}")
+
+    # GET = browser redirect from Google → send user back to frontend with token in URL
+    # POST = React frontend API call → return JSON directly
+    if request.method == "GET":
+        from fastapi.responses import RedirectResponse
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5174")
+        redirect_url = f"{frontend_url}/auth/callback?token={access_token}&email={email}"
+        return RedirectResponse(url=redirect_url, status_code=302)
+
     return {
         "access_token": access_token,
         "token_type":   "bearer",
