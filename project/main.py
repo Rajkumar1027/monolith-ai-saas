@@ -540,6 +540,90 @@ def extract_clean_text(payload):
         return "Failed to decode email."
 
 
+# ── AI Draft Generator ─────────────────────────────────────────────────────────
+class DraftRequest(BaseModel):
+    original_text: str
+    sender: str
+    subject: str
+    tone: str = "Formal"
+    length: str = "Med"
+    user_email: str
+
+@app.post("/api/generate-draft")
+async def generate_draft(req: DraftRequest):
+    """
+    Calls Gemini to generate a professional reply to an email.
+    """
+    length_guide = {"Short": "2-3 sentences", "Med": "1 concise paragraph", "Long": "2-3 thorough paragraphs"}
+    length_hint = length_guide.get(req.length, "1 concise paragraph")
+
+    prompt = f"""You are MONOLITH Neural Composer, an elite AI executive assistant.
+A user has received an email and needs a {req.tone.lower()} reply.
+
+Original email from: {req.sender}
+Subject: {req.subject}
+Body:
+{req.original_text[:2000]}
+
+Write a {req.tone.lower()} professional reply. Length: {length_hint}.
+Do NOT include a subject line or 'Re:' prefix.
+Do NOT add placeholders like [Your Name]. Write the complete, ready-to-send reply body only.
+Start directly with the greeting."""
+
+    try:
+        ai_response = call_ai(prompt)
+        draft = ai_response["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return {"draft": draft}
+    except Exception as e:
+        logger.error(f"Draft generation failed: {e}")
+        raise HTTPException(status_code=500, detail="Draft generation failed")
+
+
+# ── Gmail Send ─────────────────────────────────────────────────────────────────
+class SendEmailRequest(BaseModel):
+    user_email: str
+    to: str
+    subject: str
+    body: str
+
+@app.post("/api/send-email")
+async def send_email(req: SendEmailRequest):
+    """
+    Sends an email via the Gmail API using the stored OAuth access token.
+    """
+    user = db.users.find_one({"email": req.user_email})
+    if not user or not user.get("google_access_token"):
+        raise HTTPException(status_code=401, detail="Google account not connected.")
+
+    access_token = user["google_access_token"]
+
+    # Build RFC 2822 message
+    import email as email_lib
+    from email.mime.text import MIMEText
+
+    msg = MIMEText(req.body)
+    msg["To"]      = req.to
+    msg["From"]    = req.user_email
+    msg["Subject"] = f"Re: {req.subject}" if not req.subject.startswith("Re:") else req.subject
+
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+
+    send_response = requests.post(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+        json={"raw": raw},
+        timeout=15,
+    )
+
+    if not send_response.ok:
+        logger.error(f"Gmail send failed: {send_response.text}")
+        raise HTTPException(status_code=502, detail=f"Gmail send failed: {send_response.json().get('error', {}).get('message', 'Unknown error')}")
+
+    sent = send_response.json()
+    logger.info(f"✅ Email sent. Message ID: {sent.get('id')} → {req.to}")
+    return {"status": "sent", "message_id": sent.get("id")}
+
+
 def classify_email(subject: str, body: str) -> str:
     """
     Keyword-based neural label classifier.

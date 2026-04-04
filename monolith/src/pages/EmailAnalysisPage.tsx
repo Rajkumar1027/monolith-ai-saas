@@ -25,6 +25,7 @@ import {
   Clock,
   Lock,
   Link,
+  CheckCircle,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import ReactMarkdown from 'react-markdown';
@@ -59,6 +60,12 @@ interface LiveEmail {
   sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
   confidence: number;
   label: string;
+}
+
+interface NormalisedEmail extends LiveEmail {
+  sentimentKey: 'Positive' | 'Negative' | 'Neutral';
+  avatar: string;
+  preview: string;
 }
 
 const TREND_DATA = [
@@ -116,6 +123,9 @@ export const EmailAnalysisPage = () => {
   const [emails, setEmails]               = useState<LiveEmail[]>([]);
   const [isSyncing, setIsSyncing]         = useState(false);
   const [syncError, setSyncError]         = useState<string | null>(null);
+  const [isGenerating, setIsGenerating]   = useState(false);
+  const [isSending, setIsSending]         = useState(false);
+  const [sendStatus, setSendStatus]       = useState<'idle' | 'sent' | 'error'>('idle');
 
   // ─── Live email fetch ──────────────────────────────────────────────────────────
   const userEmail = localStorage.getItem('monolith_user_email') || '';
@@ -153,6 +163,67 @@ export const EmailAnalysisPage = () => {
     }
     window.location.href = authUrl;
   };
+
+  // ─── AI Draft Generator ────────────────────────────────────────────────────────
+  const generateDraft = useCallback(async (
+    emailItem: NormalisedEmail,
+    tone = composerTone,
+    length = composerLength,
+  ) => {
+    if (!emailItem) return;
+    setIsGenerating(true);
+    setDraftText('');
+    try {
+      const res = await fetch(`${API_URL}/api/generate-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          original_text: emailItem.full_text,
+          sender: emailItem.sender,
+          subject: emailItem.subject,
+          tone,
+          length,
+          user_email: userEmail,
+        }),
+      });
+      if (!res.ok) throw new Error(`Server ${res.status}`);
+      const data = await res.json();
+      setDraftText(data.draft || '');
+    } catch (err: any) {
+      setDraftText(`Draft failed: ${err.message}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [API_URL, userEmail, composerTone, composerLength]);
+
+  // ─── Send Reply via Gmail API ──────────────────────────────────────────────────
+  const sendReply = useCallback(async (targetEmail: NormalisedEmail | undefined, draft: string) => {
+    if (!targetEmail || !draft.trim()) return;
+    setIsSending(true);
+    setSendStatus('idle');
+    try {
+      const res = await fetch(`${API_URL}/api/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_email: userEmail,
+          to: targetEmail.sender,
+          subject: targetEmail.subject,
+          body: draft,
+        }),
+      });
+      if (!res.ok) throw new Error(`Server ${res.status}`);
+      setSendStatus('sent');
+      setDraftText('');
+      setSelectedEmail(null);
+      setTimeout(() => setSendStatus('idle'), 3500);
+    } catch {
+      setSendStatus('error');
+      setTimeout(() => setSendStatus('idle'), 3500);
+    } finally {
+      setIsSending(false);
+    }
+  }, [API_URL, userEmail]);
 
   // ─── Normalise live API fields to UI-friendly shape ─────────────────────────
   const normalisedEmails = useMemo(() => emails.map(e => ({
@@ -297,7 +368,29 @@ export const EmailAnalysisPage = () => {
         </div>
       </header>
 
-      {/* Toast */}
+      {/* Send status toasts */}
+      <AnimatePresence>
+        {sendStatus === 'sent' && (
+          <motion.div
+            key="sent-toast"
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-white text-[10px] font-black uppercase px-6 py-3 rounded-full shadow-2xl tracking-widest flex items-center gap-2"
+          >
+            <CheckCircle size={13} /> Reply Sent Successfully
+          </motion.div>
+        )}
+        {sendStatus === 'error' && (
+          <motion.div
+            key="error-toast"
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white text-[10px] font-black uppercase px-6 py-3 rounded-full shadow-2xl tracking-widest flex items-center gap-2"
+          >
+            <AlertTriangle size={13} /> Send Failed — Check Console
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Legacy Sync Toast */}
       <AnimatePresence>
         {showToast && (
           <motion.div
@@ -504,8 +597,10 @@ export const EmailAnalysisPage = () => {
                 {/* Summary Row */}
                 <div
                   onClick={() => {
-                    setExpandedId(isExpanded ? null : email.id);
+                    const next = isExpanded ? null : email.id;
+                    setExpandedId(next);
                     setSelectedEmail(email.id);
+                    if (!isExpanded) generateDraft(email);
                   }}
                   className="p-5 flex items-start md:items-center gap-4 hover:bg-white/[0.025] transition-colors"
                 >
@@ -679,11 +774,28 @@ export const EmailAnalysisPage = () => {
                       {draftText.length > 0 ? `${draftText.length} chars` : 'AI Assist Ready'}
                     </span>
                     <div className="flex gap-2">
-                      <button className="text-[8px] font-black uppercase tracking-widest text-gray-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg bg-white/[0.04] border border-gray-600 hover:border-gray-400">
-                        Generate AI Draft
+                      <button
+                        onClick={() => targetEmail && generateDraft(targetEmail)}
+                        disabled={isGenerating}
+                        className="text-[8px] font-black uppercase tracking-widest text-gray-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg bg-white/[0.04] border border-gray-600 hover:border-gray-400 disabled:opacity-40 flex items-center gap-1.5"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="inline-block">⟳</motion.span>
+                            Drafting...
+                          </>
+                        ) : 'Generate AI Draft'}
                       </button>
-                      <button className="text-[8px] font-black uppercase tracking-widest bg-white text-black px-5 py-1.5 rounded-lg hover:bg-blue-400 hover:text-white transition-all shadow-lg flex items-center gap-1.5 active:scale-95">
-                        <Send size={10} /> Send Reply
+                      <button
+                        onClick={() => sendReply(targetEmail, draftText)}
+                        disabled={isSending || !draftText.trim()}
+                        className="text-[8px] font-black uppercase tracking-widest bg-white text-black px-5 py-1.5 rounded-lg hover:bg-emerald-400 hover:text-white transition-all shadow-lg flex items-center gap-1.5 active:scale-95 disabled:opacity-40"
+                      >
+                        {isSending ? (
+                          <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="inline-block">⟳</motion.span>
+                        ) : (
+                          <><Send size={10} /> Send Now</>
+                        )}
                       </button>
                     </div>
                   </div>
