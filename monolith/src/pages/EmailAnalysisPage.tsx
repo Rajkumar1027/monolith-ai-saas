@@ -527,12 +527,9 @@ export const EmailAnalysisPage = () => {
       </section>
 
       {/* ── 6. UNIFIED INBOX ──────────────────────────────────── */}
-      <section
-        className="relative bg-[rgba(255,255,255,0.015)] backdrop-blur-sm border-2 border-[rgba(255,255,255,0.12)] rounded-[20px] overflow-hidden"
-        style={{ paddingBottom: selectedEmail ? '200px' : '8px' }}
-      >
-        {/* Inbox Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-white/[0.07]">
+      <section className="relative bg-[rgba(255,255,255,0.015)] backdrop-blur-sm border-2 border-[rgba(255,255,255,0.12)] rounded-[20px] overflow-hidden">
+        {/* Inbox Header — sticky so it stays visible while scrolling */}
+        <div className="sticky top-0 z-10 flex justify-between items-center px-6 py-4 border-b border-white/[0.07] bg-[rgba(10,10,10,0.92)] backdrop-blur-xl rounded-t-[18px]">
           <div className="flex items-center gap-3">
             <Mail size={14} className="text-white/30" />
             <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">Inbox</span>
@@ -557,8 +554,8 @@ export const EmailAnalysisPage = () => {
           </div>
         </div>
 
-        {/* Email Rows — with spinner overlay on re-sync */}
-        <div className="relative">
+        {/* Email Rows — fixed-height scrollable container with spinner overlay */}
+        <div className="relative max-h-[600px] overflow-y-auto inbox-scroll">
           <AnimatePresence>
             {isSyncing && (
               <motion.div
@@ -567,7 +564,7 @@ export const EmailAnalysisPage = () => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="absolute inset-0 z-10 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-4 rounded-xl min-h-[160px]"
+                className="absolute inset-0 z-10 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-4 rounded-xl min-h-[600px]"
               >
                 <motion.div
                   animate={{ rotate: 360 }}
