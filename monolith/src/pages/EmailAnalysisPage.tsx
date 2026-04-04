@@ -62,12 +62,14 @@ interface LiveEmail {
   sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
   confidence: number;
   label: string;
+  similarity?: number;
 }
 
 interface NormalisedEmail extends LiveEmail {
   sentimentKey: 'Positive' | 'Negative' | 'Neutral';
   avatar: string;
   preview: string;
+  similarity?: number;
 }
 
 const TREND_DATA = [
@@ -128,6 +130,11 @@ export const EmailAnalysisPage = () => {
   const [isGenerating, setIsGenerating]   = useState(false);
   const [isSending, setIsSending]         = useState(false);
   const [sendStatus, setSendStatus]       = useState<'idle' | 'sent' | 'error'>('idle');
+  
+  // Semantic Search State
+  const [isSearching, setIsSearching]     = useState(false);
+  const [searchResults, setSearchResults] = useState<NormalisedEmail[] | null>(null);
+
   const [velocityData, setVelocityData]   = useState<any>(null);
   const [velocityDays, setVelocityDays]   = useState<7 | 14>(14);
   const [isLoadingVelocity, setIsLoadingVelocity] = useState(false);
@@ -264,6 +271,32 @@ export const EmailAnalysisPage = () => {
     }
   }, [API_URL, userEmail]);
 
+  // ─── Neural Semantic Search ────────────────────────────────────────────────────
+  const doSemanticSearch = useCallback(async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const res = await fetch(`${API_URL}/api/search/semantic?user_email=${encodeURIComponent(userEmail)}&q=${encodeURIComponent(searchQuery)}`);
+      if (!res.ok) throw new Error('Search failed');
+      const data = await res.json();
+      
+      const mapped = (data.results || []).map((e: any) => ({
+        ...e,
+        sentimentKey: (e.sentiment.charAt(0) + e.sentiment.slice(1).toLowerCase()) as 'Positive' | 'Negative' | 'Neutral',
+        avatar:  (e.sender.split(/[\s<@]/)[0]?.[0] ?? '?').toUpperCase() + (e.sender.split(/[\s<@]/)[1]?.[0] ?? '').toUpperCase(),
+        preview: e.full_text?.slice(0, 120) ?? '',
+      }));
+      setSearchResults(mapped);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchQuery, userEmail, API_URL]);
+
   // ─── Normalise live API fields to UI-friendly shape ─────────────────────────
   const normalisedEmails = useMemo(() => emails.map(e => ({
     ...e,
@@ -283,11 +316,14 @@ export const EmailAnalysisPage = () => {
       if (activeTab === 'Positive') return matchesSearch && matchesLabel && e.sentimentKey === 'Positive';
       if (activeTab === 'Negative') return matchesSearch && matchesLabel && e.sentimentKey === 'Negative';
       if (activeTab === 'Neutral')  return matchesSearch && matchesLabel && e.sentimentKey === 'Neutral';
-      return matchesSearch && matchesLabel;
+    return matchesSearch && matchesLabel;
     });
   }, [normalisedEmails, searchQuery, activeTab, activeLabel]);
 
-  const targetEmail = filteredEmails.find(e => e.id === selectedEmail);
+  // Use search results if active, otherwise use normal filtered view
+  const displayEmails = searchResults !== null ? searchResults : filteredEmails;
+
+  const targetEmail = displayEmails.find(e => e.id === selectedEmail);
 
   // ─── Gmail OAuth empty state ──────────────────────────────────────────────────
   if (!isGmailConnected) {
@@ -472,15 +508,22 @@ export const EmailAnalysisPage = () => {
           <Search size={16} className="text-white/20 group-focus-within:text-white/40 transition-colors" />
           <input
             type="text"
-            placeholder="Search intelligence streams, senders, or intercept IDs..."
+            placeholder="Search intelligence streams, senders, or press Enter for AI Vault search..."
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={e => {
+              setSearchQuery(e.target.value);
+              if (!e.target.value.trim()) setSearchResults(null); 
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') doSemanticSearch();
+            }}
             className="bg-transparent border-none outline-none w-full text-sm placeholder:text-white/15 text-white/80"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="text-white/20 hover:text-white transition-colors">
+            <button onClick={() => { setSearchQuery(''); setSearchResults(null); }} className="text-white/20 hover:text-white transition-colors">
               <X size={14} />
             </button>
+
           )}
         </div>
       </section>
@@ -557,9 +600,11 @@ export const EmailAnalysisPage = () => {
         {/* Inbox Header — sticky so it stays visible while scrolling */}
         <div className="sticky top-0 z-10 flex justify-between items-center px-6 py-4 border-b border-white/[0.07] bg-[rgba(10,10,10,0.92)] backdrop-blur-xl rounded-t-[18px]">
           <div className="flex items-center gap-3">
-            <Mail size={14} className="text-white/30" />
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">Inbox</span>
-            <span className="bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+            {searchResults !== null ? <Sparkles size={14} className="text-indigo-400" /> : <Mail size={14} className="text-white/30" />}
+            <span className={cn("text-[10px] font-black uppercase tracking-[0.18em]", searchResults !== null ? "text-indigo-400" : "text-white/40")}>
+              {searchResults !== null ? "Neural Results" : "Inbox"}
+            </span>
+            <span className={cn("border text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider", searchResults !== null ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/20" : "bg-blue-500/20 text-blue-400 border-blue-500/20")}>
               {isSyncing ? (
                 <span className="flex items-center gap-1">
                   <motion.span
@@ -569,21 +614,26 @@ export const EmailAnalysisPage = () => {
                   >⟳</motion.span>
                   Scanning
                 </span>
+              ) : isSearching ? (
+                <span className="flex items-center gap-1">
+                  <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="inline-block">⟳</motion.span>
+                  Searching
+                </span>
               ) : (
-                <>{filteredEmails.length} / {emails.length} Live</>
+                <>{displayEmails.length} {searchResults !== null ? 'Matches' : `/ ${emails.length} Live`}</>
               )}
             </span>
           </div>
           <div className="flex items-center gap-1 text-[9px] text-white/20 font-black uppercase tracking-widest">
             <Clock size={10} />
-            <span>{isSyncing ? 'Syncing...' : syncError ? `Error: ${syncError}` : `${emails.length} emails loaded`}</span>
+            <span>{isSyncing ? 'Syncing...' : isSearching ? 'Querying Pinecone...' : syncError ? `Error: ${syncError}` : `${emails.length} emails loaded`}</span>
           </div>
         </div>
 
         {/* Email Rows — fixed-height scrollable container with spinner overlay */}
         <div className="relative max-h-[600px] overflow-y-auto inbox-scroll">
           <AnimatePresence>
-            {isSyncing && (
+            {(isSyncing || isSearching) && (
               <motion.div
                 key="sync-overlay"
                 initial={{ opacity: 0 }}
@@ -596,28 +646,24 @@ export const EmailAnalysisPage = () => {
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
                 >
-                  <Activity size={28} className="text-indigo-400" />
+                  {isSearching ? <Sparkles size={28} className="text-indigo-400" /> : <Activity size={28} className="text-indigo-400" />}
                 </motion.div>
                 <p className="text-[10px] uppercase tracking-[0.25em] font-black text-white/50">
-                  Classifying {emails.length > 0 ? `${emails.length}` : ''} Intercepts...
+                  {isSearching ? 'Embedding query & querying DB...' : `Classifying ${emails.length > 0 ? emails.length : ''} Intercepts...`}
                 </p>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {emails.length === 0 && !isSyncing ? (
+          {displayEmails.length === 0 && !isSyncing && !isSearching ? (
             <div className="py-16 text-center text-white/20 text-sm font-light">
-              Click Sync to load live emails from your inbox.
-            </div>
-          ) : filteredEmails.length === 0 && !isSyncing ? (
-            <div className="py-16 text-center text-white/20 text-sm font-light">
-              No emails match current filters.
+              {searchQuery ? "No emails match semantic search." : "No emails available. Click Sync."}
             </div>
           ) : (
-          filteredEmails.map((email, index) => {
+          displayEmails.map((email, index) => {
             const isExpanded = expandedId === email.id;
             const isSelected = selectedEmail === email.id;
-            const isLast     = index === filteredEmails.length - 1;
+            const isLast     = index === displayEmails.length - 1;
             const s = SENTIMENT[email.sentimentKey];
             const SIcon = s.Icon;
 
@@ -671,6 +717,11 @@ export const EmailAnalysisPage = () => {
                       <SIcon size={9} />
                       {email.sentimentKey}
                     </div>
+                    {email.similarity !== undefined && (
+                      <span className="hidden sm:inline-block px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-[#BF5AF2] border border-[#BF5AF2]/40 rounded bg-[#BF5AF2]/[0.05]">
+                        {email.similarity}% Match
+                      </span>
+                    )}
                     <span className="text-[9px] text-white/20 font-bold whitespace-nowrap">{Math.round(email.confidence * 100)}% conf</span>
                     {isExpanded ? <ChevronUp size={14} className="text-white/20" /> : <ChevronDown size={14} className="text-white/20" />}
                   </div>

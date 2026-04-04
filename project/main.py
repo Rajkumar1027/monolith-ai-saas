@@ -841,21 +841,95 @@ async def sync_live_emails(user_email: str):
                 except Exception as e:
                     print(f"Sentiment engine skipped email due to error: {e}")
 
-            email_data.append({
+            email_dict = {
                 "id": msg_id,
+                "user_email": user_email,
                 "sender": sender,
                 "subject": subject,
                 "full_text": clean_body,
                 "sentiment": ai_label,
                 "confidence": ai_score,
                 "label": classify_email(subject, clean_body),
-            })
+            }
+            email_data.append(email_dict)
 
+            # Persist to MongoDB for RAG retrieval
+            db.emails.update_one({"id": msg_id}, {"$set": email_dict}, upsert=True)
+
+            # Generate Gemini Embedding and upsert to Pinecone
+            try:
+                from project.ai.embedding import get_embedding
+                from project.db.pinecone_db import index
+                if index is not None:
+                    embed_text = f"Subject: {subject}\n\n{clean_body[:3000]}"
+                    vector = get_embedding(embed_text)
+                    index.upsert([{
+                        "id": msg_id,
+                        "values": vector,
+                        "metadata": {"user_email": user_email}
+                    }])
+            except Exception as e:
+                logger.error(f"Pinecone upsert failed for msg {msg_id}: {e}")
     return {
         "status": "success", 
         "count": len(email_data),
         "emails": email_data
     }
+
+# ── RAG: Semantic Vault Search ────────────────────────────────────────────────
+@app.get("/api/search/semantic")
+async def semantic_search(user_email: str, q: str):
+    """
+    1. Embeds the user search query using Gemini.
+    2. Queries Pinecone for Top 5 closest vector matches (filtered by user).
+    3. Fetches the full email document context from MongoDB using those IDs.
+    """
+    if not q.strip():
+        return {"status": "success", "results": []}
+    
+    from project.ai.embedding import get_embedding
+    from project.db.pinecone_db import index
+    
+    if index is None:
+        raise HTTPException(status_code=500, detail="Pinecone database not initialized")
+    
+    try:
+        # 1. Embed query
+        query_vector = get_embedding(q)
+
+        # 2. Query Pinecone
+        pc_response = index.query(
+            vector=query_vector,
+            top_k=5,
+            include_metadata=True,
+            filter={"user_email": {"$eq": user_email}}
+        )
+
+        matches = pc_response.get("matches", [])
+        if not matches:
+            return {"status": "success", "results": []}
+
+        # 3. Fetch from MongoDB and enrich with similarity score
+        results = []
+        for match in matches:
+            msg_id = match["id"]
+            score = round(match["score"] * 100, 1)  # percentage
+            
+            # Fetch from DB
+            email_doc = db.emails.find_one({"id": msg_id, "user_email": user_email})
+            if email_doc:
+                email_doc["_id"] = str(email_doc["_id"])
+                email_doc["similarity"] = score
+                results.append(email_doc)
+        
+        # Sort by best match just in case
+        results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+
+        return {"status": "success", "results": results}
+
+    except Exception as e:
+        logger.error(f"Semantic search failed: {e}")
+        raise HTTPException(status_code=500, detail="Neural search provider failed.")
 
 if __name__ == "__main__":
     import uvicorn
