@@ -30,6 +30,8 @@ import {
 import { cn } from '../utils/cn';
 import ReactMarkdown from 'react-markdown';
 import {
+  AreaChart,
+  Area,
   BarChart,
   Bar,
   XAxis,
@@ -126,6 +128,9 @@ export const EmailAnalysisPage = () => {
   const [isGenerating, setIsGenerating]   = useState(false);
   const [isSending, setIsSending]         = useState(false);
   const [sendStatus, setSendStatus]       = useState<'idle' | 'sent' | 'error'>('idle');
+  const [velocityData, setVelocityData]   = useState<any>(null);
+  const [velocityDays, setVelocityDays]   = useState<7 | 14>(14);
+  const [isLoadingVelocity, setIsLoadingVelocity] = useState(false);
 
   // ─── Live email fetch ──────────────────────────────────────────────────────────
   const userEmail = localStorage.getItem('monolith_user_email') || '';
@@ -150,6 +155,27 @@ export const EmailAnalysisPage = () => {
   useEffect(() => {
     if (isGmailConnected) fetchEmails();
   }, [isGmailConnected, fetchEmails]);
+
+  const fetchVelocity = useCallback(async (days = velocityDays) => {
+    if (!userEmail) return;
+    setIsLoadingVelocity(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/analytics/velocity?user_email=${encodeURIComponent(userEmail)}&days=${days}`
+      );
+      if (!res.ok) throw new Error(`Server ${res.status}`);
+      const data = await res.json();
+      setVelocityData(data);
+    } catch (e) {
+      console.error('Velocity fetch failed:', e);
+    } finally {
+      setIsLoadingVelocity(false);
+    }
+  }, [userEmail, API_URL, velocityDays]);
+
+  useEffect(() => {
+    if (isGmailConnected) fetchVelocity();
+  }, [isGmailConnected, fetchVelocity]);
 
   const handleConnectGmail = () => {
     const rootUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -818,77 +844,131 @@ export const EmailAnalysisPage = () => {
 
       {/* ── 7. INTELLIGENCE VELOCITY CHART ────────────────────── */}
       <section className={GLASS_CARD}>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
             <h3 className="text-base font-black tracking-tight text-white">Intelligence Velocity</h3>
-            <p className="text-[9px] uppercase tracking-[0.18em] text-white/20 font-bold mt-0.5">Comparative Temporal Sentiment Analysis</p>
+            <p className="text-[9px] uppercase tracking-[0.18em] text-white/20 font-bold mt-0.5">Real-Time Sentiment Trajectory — {velocityDays}-Day Window</p>
           </div>
 
-          {/* Month Picker */}
-          <div className="flex items-center gap-2 bg-white/[0.04] px-1 py-1 rounded-2xl border border-white/10">
-            <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] rounded-xl border border-white/[0.06]">
-              <Calendar size={11} className="text-white/20" />
-              <select
-                value={monthA}
-                onChange={e => setMonthA(e.target.value)}
-                className="bg-transparent border-none text-[9px] font-black uppercase outline-none text-white/60 cursor-pointer"
-              >
-                {['January','February','March','April','May','June'].map(m => (
-                  <option key={m} value={m} className="bg-black text-white">{m}</option>
-                ))}
-              </select>
-            </div>
-            <span className="text-[9px] font-black uppercase text-white/20 px-1">vs</span>
-            <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] rounded-xl border border-white/[0.06]">
-              <Calendar size={11} className="text-white/20" />
-              <select
-                value={monthB}
-                onChange={e => setMonthB(e.target.value)}
-                className="bg-transparent border-none text-[9px] font-black uppercase outline-none text-white/60 cursor-pointer"
-              >
-                {['January','February','March','April','May','June'].map(m => (
-                  <option key={m} value={m} className="bg-black text-white">{m}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="h-[280px]" style={{ minHeight: 280 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={TREND_DATA} margin={{ top: 10, right: 20, left: -10, bottom: 5 }} barGap={6}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 700 }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 9 }}
-                tickFormatter={v => `${v}%`}
-              />
-              <Tooltip
-                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                content={<CustomBarTooltip monthA={monthA} monthB={monthB} />}
-              />
-              <Legend
-                verticalAlign="bottom"
-                align="center"
-                wrapperStyle={{ paddingTop: '24px', fontSize: '9px', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '1px' }}
-                formatter={value => (
-                  <span style={{ color: 'rgba(255,255,255,0.35)', marginRight: '16px' }}>
-                    {value === 'previous' ? `▪ ${monthA}` : `▪ ${monthB}`}
-                  </span>
+          {/* Range Toggle */}
+          <div className="flex items-center gap-2">
+            {([7, 14] as const).map(d => (
+              <button
+                key={d}
+                onClick={() => { setVelocityDays(d); fetchVelocity(d); }}
+                className={cn(
+                  'px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border transition-all',
+                  velocityDays === d
+                    ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
+                    : 'bg-white/[0.04] border-white/10 text-white/30 hover:text-white/60'
                 )}
-              />
-              <Bar dataKey="previous" name="previous" fill="rgba(255,255,255,0.12)" radius={[4, 4, 0, 0]} barSize={28} />
-              <Bar dataKey="current"  name="current"  fill="#3B82F6"               radius={[4, 4, 0, 0]} barSize={28} />
-            </BarChart>
-          </ResponsiveContainer>
+              >{d}D</button>
+            ))}
+            <button
+              onClick={() => {
+                setIsLoadingVelocity(true);
+                fetch(`${API_URL}/api/analytics/velocity?user_email=${encodeURIComponent(userEmail)}&days=${velocityDays}`)
+                  .then(r => r.json())
+                  .then(d => setVelocityData(d))
+                  .catch(console.error)
+                  .finally(() => setIsLoadingVelocity(false));
+              }}
+              className="px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border bg-white/[0.04] border-white/10 text-white/30 hover:text-white/60 transition-all flex items-center gap-1.5"
+            >
+              <motion.span
+                animate={isLoadingVelocity ? { rotate: 360 } : {}}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              >↻</motion.span>
+              Refresh
+            </button>
+          </div>
         </div>
+
+        {/* Stacked Area Chart */}
+        {!velocityData ? (
+          <div className="h-[260px] flex flex-col items-center justify-center gap-3 text-white/20">
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}>
+              <Activity size={22} className="text-indigo-400" />
+            </motion.div>
+            <p className="text-[10px] uppercase tracking-widest font-black">Loading velocity data...</p>
+          </div>
+        ) : (
+          <div className="h-[260px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={velocityData.chart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradPos" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#30D158" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#30D158" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gradNeu" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#F5A623" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#F5A623" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gradNeg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#FF453A" stopOpacity={0.30} />
+                    <stop offset="95%" stopColor="#FF453A" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  axisLine={false} tickLine={false}
+                  tick={{ fill: 'rgba(255,255,255,0.25)', fontSize: 9, fontWeight: 700 }}
+                  interval={velocityDays <= 7 ? 0 : 1}
+                />
+                <YAxis
+                  axisLine={false} tickLine={false}
+                  tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 9 }}
+                  tickFormatter={v => `${v}%`}
+                  domain={[0, 100]}
+                />
+                <Tooltip
+                  cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }}
+                  contentStyle={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 11 }}
+                  itemStyle={{ color: 'rgba(255,255,255,0.7)' }}
+                  labelStyle={{ color: 'rgba(255,255,255,0.4)', fontWeight: 900, fontSize: 9, textTransform: 'uppercase', letterSpacing: 2 }}
+                  formatter={(val: any) => [`${val}%`]}
+                />
+                <Legend
+                  verticalAlign="bottom" align="center"
+                  wrapperStyle={{ paddingTop: 16, fontSize: 9, textTransform: 'uppercase', fontWeight: 900, letterSpacing: 1 }}
+                  formatter={value => <span style={{ color: 'rgba(255,255,255,0.35)', marginRight: 12 }}>▪ {value}</span>}
+                />
+                <Area type="monotone" dataKey="Positive" stackId="1" stroke="#30D158" strokeWidth={2} fill="url(#gradPos)" />
+                <Area type="monotone" dataKey="Neutral"  stackId="1" stroke="#F5A623" strokeWidth={2} fill="url(#gradNeu)" />
+                <Area type="monotone" dataKey="Negative" stackId="1" stroke="#FF453A" strokeWidth={2} fill="url(#gradNeg)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Intelligence Report */}
+        {velocityData?.report && (
+          <div className="mt-6 pt-6 border-t border-white/[0.06]">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
+                <Sparkles size={13} className="text-indigo-400" />
+              </div>
+              <p className="text-[9px] uppercase font-black tracking-[0.2em] text-white/30">Monolith Intelligence Report</p>
+              {/* Delta badges */}
+              {velocityData.delta && (
+                <div className="ml-auto flex gap-2">
+                  {[{label:'Pos', key:'Positive', color:'#30D158'},{label:'Neg', key:'Negative', color:'#FF453A'}].map(({label, key, color}) => {
+                    const delta = velocityData.delta[key] ?? 0;
+                    return (
+                      <span key={key} className="text-[8px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider"
+                        style={{ color, borderColor: `${color}44`, background: `${color}12` }}>
+                        {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% {label}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <p className="text-sm text-white/55 leading-relaxed font-light">{velocityData.report}</p>
+          </div>
+        )}
       </section>
 
       {/* ── 8. INTELLIGENCE FEEDBACK ──────────────────────────── */}

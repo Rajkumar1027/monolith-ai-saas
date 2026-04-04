@@ -624,6 +624,140 @@ async def send_email(req: SendEmailRequest):
     return {"status": "sent", "message_id": sent.get("id")}
 
 
+# ── Analytics: Sentiment Velocity ─────────────────────────────────────────────
+@app.get("/api/analytics/velocity")
+async def get_sentiment_velocity(user_email: str, days: int = 14):
+    """
+    Fetches up to 50 recent emails from Gmail, scores sentiment, groups by date,
+    and returns a 14-day stacked chart payload plus an AI-generated intelligence report.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    user = db.users.find_one({"email": user_email})
+    if not user or not user.get("google_access_token"):
+        raise HTTPException(status_code=401, detail="Google account not connected.")
+
+    access_token = user["google_access_token"]
+    headers      = {"Authorization": f"Bearer {access_token}"}
+
+    # Fetch up to 50 message IDs (metadata only for speed)
+    list_url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50&format=metadata"
+    list_res = requests.get(list_url, headers=headers, timeout=15)
+    if list_res.status_code == 401:
+        raise HTTPException(status_code=401, detail="Google token expired.")
+
+    messages = list_res.json().get("messages", [])
+    if not messages:
+        return {"chart": [], "report": "No emails found to analyse.", "current": {}, "previous": {}}
+
+    now      = datetime.now(timezone.utc)
+    cutoff   = now - timedelta(days=days)
+    mid_cut  = now - timedelta(days=days // 2)   # splits into two equal halves
+
+    # Bucket: date_str → { POSITIVE: n, NEGATIVE: n, NEUTRAL: n }
+    buckets: dict[str, dict[str, int]] = {}
+
+    for msg in messages:
+        msg_id = msg["id"]
+        detail_url = (
+            f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_id}"
+            f"?format=metadata&metadataHeaders=Subject&metadataHeaders=From"
+        )
+        d = requests.get(detail_url, headers=headers, timeout=10)
+        if not d.ok:
+            continue
+
+        data         = d.json()
+        internal_ms  = int(data.get("internalDate", 0))
+        email_dt     = datetime.fromtimestamp(internal_ms / 1000, tz=timezone.utc)
+
+        if email_dt < cutoff:
+            continue
+
+        date_str = email_dt.strftime("%b %d")
+
+        # Lightweight snippet sentiment
+        snippet = data.get("snippet", "")[:500]
+        sentiment = "NEUTRAL"
+        if len(snippet.strip()) > 5:
+            try:
+                score = TextBlob(snippet).sentiment.polarity
+                if score > 0.1:
+                    sentiment = "POSITIVE"
+                elif score < -0.1:
+                    sentiment = "NEGATIVE"
+            except Exception:
+                pass
+
+        if date_str not in buckets:
+            buckets[date_str] = {"POSITIVE": 0, "NEGATIVE": 0, "NEUTRAL": 0}
+        buckets[date_str][sentiment] += 1
+
+    # Build chart rows sorted by date
+    chart = []
+    current_totals = {"POSITIVE": 0, "NEGATIVE": 0, "NEUTRAL": 0}
+    previous_totals = {"POSITIVE": 0, "NEGATIVE": 0, "NEUTRAL": 0}
+
+    for i in range(days - 1, -1, -1):
+        day    = now - timedelta(days=i)
+        label  = day.strftime("%b %d")
+        counts = buckets.get(label, {"POSITIVE": 0, "NEGATIVE": 0, "NEUTRAL": 0})
+        total  = sum(counts.values()) or 1
+        row = {
+            "date": label,
+            "Positive": round(counts["POSITIVE"] / total * 100, 1),
+            "Negative": round(counts["NEGATIVE"] / total * 100, 1),
+            "Neutral":  round(counts["NEUTRAL"]  / total * 100, 1),
+            "_total":   sum(counts.values()),
+        }
+        chart.append(row)
+
+        if day >= mid_cut:
+            for k in current_totals:
+                current_totals[k] += counts[k]
+        else:
+            for k in previous_totals:
+                previous_totals[k] += counts[k]
+
+    # Calculate deltas
+    def pct(n, t): return round(n / t * 100, 1) if t else 0.0
+    cur_total  = sum(current_totals.values())  or 1
+    prev_total = sum(previous_totals.values()) or 1
+
+    cur_pos  = pct(current_totals["POSITIVE"],  cur_total)
+    prev_pos = pct(previous_totals["POSITIVE"], prev_total)
+    cur_neg  = pct(current_totals["NEGATIVE"],  cur_total)
+    prev_neg = pct(previous_totals["NEGATIVE"], prev_total)
+    delta_pos = round(cur_pos - prev_pos, 1)
+    delta_neg = round(cur_neg - prev_neg, 1)
+
+    # Generate AI intelligence report
+    report_prompt = f"""You are MONOLITH Neural Analyst. Write a concise 2–3 sentence intelligence report (no bullet points, no headers).
+
+Sentiment data for this user's inbox — last {days // 2} days vs previous {days // 2} days:
+Current period:  Positive {cur_pos}%, Negative {cur_neg}%, Neutral {round(100 - cur_pos - cur_neg, 1)}%
+Previous period: Positive {prev_pos}%, Negative {prev_neg}%, Neutral {round(100 - prev_pos - prev_neg, 1)}%
+Positive delta: {delta_pos:+.1f}%  |  Negative delta: {delta_neg:+.1f}%
+Total emails analysed: {sum(current_totals.values()) + sum(previous_totals.values())}
+
+Write a sharp, data-driven intelligence report. Sound like a Bloomberg terminal, not a chatbot."""
+
+    report = "Intelligence report unavailable."
+    try:
+        ai_res  = call_ai(report_prompt)
+        report  = ai_res["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except Exception as e:
+        logger.warning(f"Velocity report generation failed: {e}")
+
+    return {
+        "chart":    chart,
+        "report":   report,
+        "current":  {"Positive": cur_pos, "Negative": cur_neg, "Neutral": round(100 - cur_pos - cur_neg, 1)},
+        "previous": {"Positive": prev_pos, "Negative": prev_neg, "Neutral": round(100 - prev_pos - prev_neg, 1)},
+        "delta":    {"Positive": delta_pos, "Negative": delta_neg},
+    }
+
+
 def classify_email(subject: str, body: str) -> str:
     """
     Keyword-based neural label classifier.
