@@ -12,6 +12,10 @@ const BACKEND_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 interface TokenResponse {
   access_token: string;
   token_type?: string;
+  user?: {
+    email: string;
+    username: string;
+  };
 }
 
 async function exchangeToken(code: string): Promise<TokenResponse> {
@@ -223,8 +227,10 @@ export const AuthCallbackPage = () => {
 
     // ── Fast path: backend redirected here with the JWT already minted ──────────
     if (token) {
+      const email = searchParams.get('email') || '';
       localStorage.setItem('monolith_token', token);
       localStorage.setItem('monolith_auth', 'true');
+      localStorage.setItem('monolith_user_email', email);
       setStatus('success');
       setTimeout(() => navigate('/dashboard', { replace: true }), 1200);
       return;
@@ -240,6 +246,7 @@ export const AuthCallbackPage = () => {
       .then((data) => {
         localStorage.setItem('monolith_token', data.access_token);
         localStorage.setItem('monolith_auth', 'true');
+        localStorage.setItem('monolith_user_email', data.user?.email ?? '');
         setStatus('success');
         setTimeout(() => navigate('/dashboard', { replace: true }), 1200);
       })
