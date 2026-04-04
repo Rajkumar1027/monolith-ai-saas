@@ -575,8 +575,8 @@ async def sync_live_emails(user_email: str):
     access_token = user["google_access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
     
-    # Get the latest 5 message IDs
-    gmail_list_url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5"
+    # Get the latest 20 message IDs
+    gmail_list_url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20"
     response = requests.get(gmail_list_url, headers=headers)
     
     if response.status_code == 401:

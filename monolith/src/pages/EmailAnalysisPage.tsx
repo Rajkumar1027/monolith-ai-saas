@@ -431,7 +431,18 @@ export const EmailAnalysisPage = () => {
             <Mail size={14} className="text-white/30" />
             <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">Inbox</span>
             <span className="bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-              {emails.length} Live
+              {isSyncing ? (
+                <span className="flex items-center gap-1">
+                  <motion.span
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    className="inline-block"
+                  >⟳</motion.span>
+                  Scanning
+                </span>
+              ) : (
+                <>{filteredEmails.length} / {emails.length} Live</>
+              )}
             </span>
           </div>
           <div className="flex items-center gap-1 text-[9px] text-white/20 font-black uppercase tracking-widest">
@@ -440,22 +451,40 @@ export const EmailAnalysisPage = () => {
           </div>
         </div>
 
-        {/* Email Rows */}
-        {isSyncing && emails.length === 0 ? (
-          <div className="py-16 flex flex-col items-center gap-3 text-white/30">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-            >
-              <Activity size={22} className="text-indigo-400" />
-            </motion.div>
-            <p className="text-[11px] uppercase tracking-widest font-black">Scanning for Intelligence...</p>
-          </div>
-        ) : filteredEmails.length === 0 ? (
-          <div className="py-16 text-center text-white/20 text-sm font-light">
-            {emails.length === 0 ? 'Click Sync to load live emails from your inbox.' : 'No emails match current filters.'}
-          </div>
-        ) : (
+        {/* Email Rows — with spinner overlay on re-sync */}
+        <div className="relative">
+          <AnimatePresence>
+            {isSyncing && (
+              <motion.div
+                key="sync-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 z-10 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-4 rounded-xl min-h-[160px]"
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                >
+                  <Activity size={28} className="text-indigo-400" />
+                </motion.div>
+                <p className="text-[10px] uppercase tracking-[0.25em] font-black text-white/50">
+                  Classifying {emails.length > 0 ? `${emails.length}` : ''} Intercepts...
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {emails.length === 0 && !isSyncing ? (
+            <div className="py-16 text-center text-white/20 text-sm font-light">
+              Click Sync to load live emails from your inbox.
+            </div>
+          ) : filteredEmails.length === 0 && !isSyncing ? (
+            <div className="py-16 text-center text-white/20 text-sm font-light">
+              No emails match current filters.
+            </div>
+          ) : (
           filteredEmails.map((email, index) => {
             const isExpanded = expandedId === email.id;
             const isSelected = selectedEmail === email.id;
@@ -568,7 +597,8 @@ export const EmailAnalysisPage = () => {
               </div>
             );
           })
-        )}
+          )}
+        </div>
 
         {/* ── NEURAL COMPOSER FLOATING DOCK ── */}
         <AnimatePresence>
