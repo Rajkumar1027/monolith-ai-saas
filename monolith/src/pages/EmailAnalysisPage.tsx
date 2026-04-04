@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -49,79 +49,16 @@ const SENTIMENT = {
   Neutral:  { color: '#F5A623', bg: 'rgba(245, 166, 35, 0.10)', border: 'rgba(245, 166, 35, 0.25)', Icon: Minus },
 };
 
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-const EMAIL_DATA = [
-  {
-    id: 1,
-    sender: 'Elena Petrov',
-    company: 'Astra Ventures',
-    email: 'e.petrov@astraventures.vc',
-    subject: 'Follow-up on Q1 Growth Projections & Series A Term Sheet',
-    preview: 'Elena is requesting a revision of the Series A cap table before next Thursday\'s board call...',
-    time: '8 min ago',
-    sentiment: 'Positive' as const,
-    unread: true,
-    labels: ['Urgent', 'Legal'],
-    avatar: 'EP',
-    content: `## Series A — Term Sheet Follow-up\n\nHi,\n\nFollowing our call last Tuesday, I wanted to formally revisit the **Q1 growth projections** and lock in the final term sheet clauses before Thursday's board presentation.\n\nKey asks:\n- [ ] Revised cap table reflecting the 12% dilution scenario\n- [ ] Finalized SAFE conversion terms\n- [ ] Sign-off from your legal counsel on the liquidation preference clause\n\nLet me know your availability for a 30-min sync before EOD Wednesday.\n\n**Elena Petrov** | Principal, Astra Ventures`,
-  },
-  {
-    id: 2,
-    sender: 'Marcus Webb',
-    company: 'NovaCraft Solutions',
-    email: 'm.webb@novacraft.io',
-    subject: 'Customer Escalation — Billing API Error on Enterprise Tier (Ticket #NC-8821)',
-    preview: 'Production billing API returning 503 errors since 14:00 UTC. Three enterprise clients affected...',
-    time: '22 min ago',
-    sentiment: 'Negative' as const,
-    unread: true,
-    labels: ['Urgent', 'Billing', 'Support'],
-    avatar: 'MW',
-    content: `## Critical Billing API Failure — Ticket #NC-8821\n\nHello Support,\n\nWe are seeing intermittent **503 errors from your Billing API** since approximately 14:00 UTC today. This is affecting three of our enterprise clients attempting to reconcile their monthly invoices.\n\n**Impact**: Revenue cycle disrupted for accounts totalling **$420K ARR**.\n\nPlease escalate immediately. We need an RCA and ETA within 2 hours.\n\n— Marcus Webb, CTO, NovaCraft Solutions`,
-  },
-  {
-    id: 3,
-    sender: 'Yuki Tanaka',
-    company: 'Zenith Tech Legal',
-    email: 'y.tanaka@zenithtech.legal',
-    subject: 'Zenith Tech — Contractual Amendment for Neural Ingest Data Processing Clause',
-    preview: 'Requesting an amendment to Section 7.4 (Data Residency) to reflect APAC compliance requirements...',
-    time: '1 hr ago',
-    sentiment: 'Neutral' as const,
-    unread: false,
-    labels: ['Legal', 'Compliance'],
-    avatar: 'YT',
-    content: `## Amendment Request — Section 7.4 Data Residency\n\nDear Monolith Legal Team,\n\nFollowing our client's recent audit, we are formally requesting an **amendment to Section 7.4** of the Master Services Agreement to reflect updated APAC data residency requirements under the PDPA (Singapore) and PIPL (China).\n\nWe need the revised clause to specify that all Neural Ingest telemetry data be processed exclusively within **APAC-region nodes**.\n\nPlease revert with a redline before April 9.\n\nYuki Tanaka | Senior Counsel, Zenith Tech`,
-  },
-  {
-    id: 4,
-    sender: 'Sam Rivera',
-    company: 'PulseAI',
-    email: 's.rivera@pulseai.dev',
-    subject: 'Feature Request: Webhook support for real-time sentiment scoring pipeline',
-    preview: 'Proposing a webhook integration endpoint to pipe live sentiment scores into our internal Grafana...',
-    time: '3 hrs ago',
-    sentiment: 'Positive' as const,
-    unread: false,
-    labels: ['Feature Request'],
-    avatar: 'SR',
-    content: `## Feature Request: Webhook Sentiment Pipeline\n\nHi team!\n\nOur team at PulseAI has a strong use case for a **real-time webhook endpoint** that emits live sentiment scores as emails are processed.\n\nThis would allow us to route events directly into our Grafana observability stack without polling. We're willing to co-develop the spec if that helps prioritize.\n\nInterested in a product call to scope this out?\n\nSam Rivera | Head of Integrations, PulseAI`,
-  },
-  {
-    id: 5,
-    sender: 'Priya Nair',
-    company: 'Orbit Analytics',
-    email: 'p.nair@orbitanalytics.com',
-    subject: 'Monthly Intelligence Report — March Sentiment Drift Analysis',
-    preview: 'Sharing our March analysis: Positive sentiment up 7.2%, Negative clusters concentrated in APAC...',
-    time: '6 hrs ago',
-    sentiment: 'Positive' as const,
-    unread: false,
-    labels: ['Reporting'],
-    avatar: 'PN',
-    content: `## March Sentiment Drift — Monthly Intelligence Report\n\nHi Monolith Team,\n\nAttached is our **March Intelligence Digest**. Key highlights:\n\n- **Positive Sentiment**: +7.2% month-over-month ↑\n- **Negative Cluster**: Concentrated in APAC infrastructure tickets (14 threads)\n- **Billing Category**: 3.1% spike detected mid-month, now resolved\n- **Predicted April Trend**: Stabilization with minor positive drift\n\nLet me know if you want us to drill into any category.\n\nPriya Nair | Data Intelligence Lead, Orbit Analytics`,
-  },
-];
+
+// ─── Live Email Type ────────────────────────────────────────────────────────────
+interface LiveEmail {
+  id: string;
+  sender: string;
+  subject: string;
+  full_text: string;
+  sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+  confidence: number;
+}
 
 const TREND_DATA = [
   { name: 'Positive', current: 72.4, previous: 65.2 },
@@ -163,8 +100,8 @@ export const EmailAnalysisPage = () => {
   const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [searchQuery, setSearchQuery]     = useState('');
   const [activeTab, setActiveTab]         = useState('All');
-  const [expandedId, setExpandedId]       = useState<number | null>(1);
-  const [selectedEmail, setSelectedEmail] = useState<number | null>(1);
+  const [expandedId, setExpandedId]       = useState<string | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
   const [activeLabels, setActiveLabels]   = useState<string[]>(['Urgent']);
   const [composerTone, setComposerTone]   = useState('Formal');
   const [composerLength, setComposerLength] = useState('Med');
@@ -174,6 +111,33 @@ export const EmailAnalysisPage = () => {
   const [summaryQuery, setSummaryQuery]   = useState('');
   const [showToast, setShowToast]         = useState(false);
   const [isConnecting, setIsConnecting]   = useState(false);
+  const [emails, setEmails]               = useState<LiveEmail[]>([]);
+  const [isSyncing, setIsSyncing]         = useState(false);
+  const [syncError, setSyncError]         = useState<string | null>(null);
+
+  // ─── Live email fetch ──────────────────────────────────────────────────────────
+  const userEmail = localStorage.getItem('monolith_user_email') || '';
+  const API_URL   = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  const fetchEmails = useCallback(async () => {
+    if (!userEmail) return;
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/emails/sync?user_email=${encodeURIComponent(userEmail)}`);
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const data = await res.json();
+      setEmails(data.emails || []);
+    } catch (err: any) {
+      setSyncError(err.message || 'Sync failed');
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [userEmail, API_URL]);
+
+  useEffect(() => {
+    if (isGmailConnected) fetchEmails();
+  }, [isGmailConnected, fetchEmails]);
 
   const handleConnectGmail = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -196,20 +160,29 @@ export const EmailAnalysisPage = () => {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const filteredEmails = useMemo(() => {
-    return EMAIL_DATA.filter(e => {
-      const matchesSearch = e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            e.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            e.company.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesLabels = activeLabels.length === 0 || activeLabels.some(al => e.labels.includes(al));
-      if (activeTab === 'All')    return matchesSearch && matchesLabels;
-      if (activeTab === 'Unread') return matchesSearch && matchesLabels && e.unread;
-      if (activeTab === 'Read')   return matchesSearch && matchesLabels && !e.unread;
-      return matchesSearch && matchesLabels && e.sentiment === activeTab;
-    });
-  }, [searchQuery, activeTab, activeLabels]);
+  // ─── Normalise live API fields to UI-friendly shape ─────────────────────────
+  const normalisedEmails = useMemo(() => emails.map(e => ({
+    ...e,
+    // Map UPPERCASE API sentiment to Title-case used by SENTIMENT colour map
+    sentimentKey: (e.sentiment.charAt(0) + e.sentiment.slice(1).toLowerCase()) as 'Positive' | 'Negative' | 'Neutral',
+    avatar:  (e.sender.split(/[\s<@]/)[0]?.[0] ?? '?').toUpperCase() +
+             (e.sender.split(/[\s<@]/)[1]?.[0] ?? '').toUpperCase(),
+    preview: e.full_text?.slice(0, 120) ?? '',
+  })), [emails]);
 
-  const targetEmail = EMAIL_DATA.find(e => e.id === selectedEmail);
+  const filteredEmails = useMemo(() => {
+    return normalisedEmails.filter(e => {
+      const matchesSearch = e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            e.sender.toLowerCase().includes(searchQuery.toLowerCase());
+      if (activeTab === 'All')      return matchesSearch;
+      if (activeTab === 'Positive') return matchesSearch && e.sentimentKey === 'Positive';
+      if (activeTab === 'Negative') return matchesSearch && e.sentimentKey === 'Negative';
+      if (activeTab === 'Neutral')  return matchesSearch && e.sentimentKey === 'Neutral';
+      return matchesSearch;
+    });
+  }, [normalisedEmails, searchQuery, activeTab]);
+
+  const targetEmail = filteredEmails.find(e => e.id === selectedEmail);
 
   // ─── Gmail OAuth empty state ──────────────────────────────────────────────────
   if (!isGmailConnected) {
@@ -306,10 +279,15 @@ export const EmailAnalysisPage = () => {
             <motion.button
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
-              onClick={handleAutoAll}
-              className="px-5 py-2.5 bg-white/5 text-white/50 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+              onClick={async () => {
+                setShowToast(true);
+                await fetchEmails();
+                setTimeout(() => setShowToast(false), 2500);
+              }}
+              disabled={isSyncing}
+              className="px-5 py-2.5 bg-white/5 text-white/50 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2 disabled:opacity-40"
             >
-              <Zap size={11} /> Auto All
+              <Zap size={11} /> {isSyncing ? 'Syncing...' : 'Sync'}
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.04 }}
@@ -397,7 +375,7 @@ export const EmailAnalysisPage = () => {
           ))}
         </div>
         <div className="text-[9px] uppercase tracking-widest text-white/20 font-black">
-          {filteredEmails.length} / {EMAIL_DATA.length} intercepts
+          {filteredEmails.length} / {emails.length} intercepts
         </div>
       </section>
 
@@ -440,25 +418,36 @@ export const EmailAnalysisPage = () => {
             <Mail size={14} className="text-white/30" />
             <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">Inbox</span>
             <span className="bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-              {EMAIL_DATA.filter(e => e.unread).length} Unread
+              {emails.length} Live
             </span>
           </div>
           <div className="flex items-center gap-1 text-[9px] text-white/20 font-black uppercase tracking-widest">
             <Clock size={10} />
-            <span>Synced 2s ago</span>
+            <span>{isSyncing ? 'Syncing...' : syncError ? `Error: ${syncError}` : `${emails.length} emails loaded`}</span>
           </div>
         </div>
 
         {/* Email Rows */}
-        {filteredEmails.length === 0 ? (
-          <div className="py-16 text-center text-white/20 text-sm font-light">No intelligence intercepts match the current filters.</div>
+        {isSyncing && emails.length === 0 ? (
+          <div className="py-16 flex flex-col items-center gap-3 text-white/30">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+            >
+              <Activity size={22} className="text-indigo-400" />
+            </motion.div>
+            <p className="text-[11px] uppercase tracking-widest font-black">Scanning for Intelligence...</p>
+          </div>
+        ) : filteredEmails.length === 0 ? (
+          <div className="py-16 text-center text-white/20 text-sm font-light">
+            {emails.length === 0 ? 'Click Sync to load live emails from your inbox.' : 'No emails match current filters.'}
+          </div>
         ) : (
           filteredEmails.map((email, index) => {
-            const isUrgent   = email.labels.includes('Urgent');
             const isExpanded = expandedId === email.id;
             const isSelected = selectedEmail === email.id;
             const isLast     = index === filteredEmails.length - 1;
-            const s = SENTIMENT[email.sentiment];
+            const s = SENTIMENT[email.sentimentKey];
             const SIcon = s.Icon;
 
             return (
@@ -490,18 +479,8 @@ export const EmailAnalysisPage = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-[11px] font-bold text-white/90 truncate">
-                        {email.company}
+                        {email.sender}
                       </span>
-                      <span className="text-white/25 text-[10px]">·</span>
-                      <span className="text-[10px] text-white/40 truncate">{email.sender}</span>
-                      {email.unread && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                      )}
-                      {isUrgent && (
-                        <span className="flex items-center gap-0.5 bg-red-500/15 text-red-400 text-[7px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest border border-red-500/20 flex-shrink-0">
-                          <AlertTriangle size={7} /> Urgent
-                        </span>
-                      )}
                     </div>
                     <p className="text-[11px] text-white/70 font-medium leading-tight truncate pr-4">{email.subject}</p>
                     {!isExpanded && (
@@ -517,9 +496,9 @@ export const EmailAnalysisPage = () => {
                       style={{ background: s.bg, borderColor: s.border, color: s.color }}
                     >
                       <SIcon size={9} />
-                      {email.sentiment}
+                      {email.sentimentKey}
                     </div>
-                    <span className="text-[9px] text-white/20 font-bold whitespace-nowrap">{email.time}</span>
+                    <span className="text-[9px] text-white/20 font-bold whitespace-nowrap">{Math.round(email.confidence * 100)}% conf</span>
                     {isExpanded ? <ChevronUp size={14} className="text-white/20" /> : <ChevronDown size={14} className="text-white/20" />}
                   </div>
                 </div>
@@ -537,16 +516,15 @@ export const EmailAnalysisPage = () => {
                       <div className="flex gap-4 pt-5">
                         {/* Thread */}
                         <div className="flex-1 prose prose-invert prose-base max-w-none leading-[1.75] [&>p]:text-[15px] [&>p]:text-gray-300 [&>p]:mb-4 [&>ul]:text-[15px] [&>ul]:text-gray-300 [&>ul]:space-y-2 [&>h2]:text-white [&>h2]:font-bold [&>h2]:mb-3 [&>strong]:text-white [&>p>strong]:text-white [&>p>a]:text-blue-400">
-                          <ReactMarkdown>{email.content}</ReactMarkdown>
+                          <p className="text-sm text-gray-300 whitespace-pre-wrap">{email.full_text}</p>
                         </div>
                         {/* Thread Meta */}
                         <div className="w-40 flex-shrink-0 space-y-2 pt-1">
-                          <div className="text-[8px] uppercase font-black tracking-widest text-white/20 mb-2">Labels</div>
-                          {email.labels.map(l => (
-                            <span key={l} className="block text-[8px] text-white/40 bg-white/5 border border-white/10 rounded-md px-2 py-0.5 font-black uppercase tracking-wide truncate">
-                              # {l}
-                            </span>
-                          ))}
+                          <div className="text-[8px] uppercase font-black tracking-widest text-white/20 mb-2">Sentiment</div>
+                          <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: SENTIMENT[email.sentimentKey].color }}>
+                            {email.sentimentKey}
+                          </div>
+                          <div className="text-[9px] text-white/30">{Math.round(email.confidence * 100)}% confidence</div>
                         </div>
                       </div>
 
@@ -567,18 +545,9 @@ export const EmailAnalysisPage = () => {
                           </button>
                         </div>
 
-                        {/* Urgent Override */}
-                        {isUrgent ? (
-                          <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-red-400 bg-red-400/10 px-3 py-1.5 rounded-full border border-red-400/20">
-                            <UserCheck size={11} /> Human Required
-                            <span className="w-px h-3 bg-red-400/20 mx-0.5" />
-                            <ZapOff size={11} className="opacity-50" /> Auto Locked
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-blue-400/60">
-                            <Zap size={11} /> Auto-Reply Active
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-blue-400/60">
+                          <Zap size={11} /> Auto-Reply Active
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -609,7 +578,7 @@ export const EmailAnalysisPage = () => {
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-white/80">Neural Composer</p>
                       <p className="text-[9px] text-white/25 font-medium">
-                        ↳ {targetEmail?.company} · {targetEmail?.sender}
+                        ↳ {targetEmail?.sender}
                       </p>
                     </div>
                   </div>
