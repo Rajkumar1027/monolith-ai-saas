@@ -58,6 +58,7 @@ interface LiveEmail {
   full_text: string;
   sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
   confidence: number;
+  label: string;
 }
 
 const TREND_DATA = [
@@ -66,7 +67,6 @@ const TREND_DATA = [
   { name: 'Negative', current:  9.5, previous: 12.0 },
 ];
 
-const SMART_LABELS = ['Urgent', 'Billing', 'Support', 'Legal', 'Feature Request', 'Compliance', 'Reporting'];
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
 const CustomBarTooltip = ({ active, payload, monthA, monthB }: any) => {
@@ -95,6 +95,8 @@ const CustomBarTooltip = ({ active, payload, monthA, monthB }: any) => {
   );
 };
 
+const SMART_LABELS = ['URGENT', 'BILLING', 'SUPPORT', 'LEGAL', 'FEATURE', 'REPORTING', 'COMPLIANCE', 'GENERAL'];
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 export const EmailAnalysisPage = () => {
   const [isGmailConnected, setIsGmailConnected] = useState(false);
@@ -102,7 +104,7 @@ export const EmailAnalysisPage = () => {
   const [activeTab, setActiveTab]         = useState('All');
   const [expandedId, setExpandedId]       = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
-  const [activeLabels, setActiveLabels]   = useState<string[]>(['Urgent']);
+  const [activeLabel, setActiveLabel]     = useState('ALL');
   const [composerTone, setComposerTone]   = useState('Formal');
   const [composerLength, setComposerLength] = useState('Med');
   const [draftText, setDraftText]         = useState('');
@@ -152,14 +154,6 @@ export const EmailAnalysisPage = () => {
     window.location.href = authUrl;
   };
 
-  const toggleLabel = (label: string) =>
-    setActiveLabels(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]);
-
-  const handleAutoAll = () => {
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-  };
-
   // ─── Normalise live API fields to UI-friendly shape ─────────────────────────
   const normalisedEmails = useMemo(() => emails.map(e => ({
     ...e,
@@ -174,13 +168,14 @@ export const EmailAnalysisPage = () => {
     return normalisedEmails.filter(e => {
       const matchesSearch = e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             e.sender.toLowerCase().includes(searchQuery.toLowerCase());
-      if (activeTab === 'All')      return matchesSearch;
-      if (activeTab === 'Positive') return matchesSearch && e.sentimentKey === 'Positive';
-      if (activeTab === 'Negative') return matchesSearch && e.sentimentKey === 'Negative';
-      if (activeTab === 'Neutral')  return matchesSearch && e.sentimentKey === 'Neutral';
-      return matchesSearch;
+      const matchesLabel  = activeLabel === 'ALL' || e.label === activeLabel;
+      if (activeTab === 'All')      return matchesSearch && matchesLabel;
+      if (activeTab === 'Positive') return matchesSearch && matchesLabel && e.sentimentKey === 'Positive';
+      if (activeTab === 'Negative') return matchesSearch && matchesLabel && e.sentimentKey === 'Negative';
+      if (activeTab === 'Neutral')  return matchesSearch && matchesLabel && e.sentimentKey === 'Neutral';
+      return matchesSearch && matchesLabel;
     });
-  }, [normalisedEmails, searchQuery, activeTab]);
+  }, [normalisedEmails, searchQuery, activeTab, activeLabel]);
 
   const targetEmail = filteredEmails.find(e => e.id === selectedEmail);
 
@@ -386,20 +381,38 @@ export const EmailAnalysisPage = () => {
           Neural Labels
         </div>
         <div className="flex gap-2 flex-nowrap">
-          {SMART_LABELS.map(label => {
-            const isActive = activeLabels.includes(label);
+          {['ALL', ...SMART_LABELS].map(label => {
+            const isActive = activeLabel === label;
+            // Give each label a unique accent colour
+            const LABEL_COLORS: Record<string, string> = {
+              ALL:        '#6366f1',
+              URGENT:     '#FF453A',
+              BILLING:    '#F5A623',
+              SUPPORT:    '#30D158',
+              LEGAL:      '#BF5AF2',
+              FEATURE:    '#0A84FF',
+              REPORTING:  '#64D2FF',
+              COMPLIANCE: '#FF9F0A',
+              GENERAL:    '#8E8E93',
+            };
+            const color = LABEL_COLORS[label] ?? '#6366f1';
             return (
               <button
                 key={label}
-                onClick={() => toggleLabel(label)}
-                className={cn(
-                  'px-3 py-1 text-[9px] rounded-full transition-all cursor-pointer whitespace-nowrap border uppercase tracking-wider font-black',
-                  isActive
-                    ? 'bg-white text-black border-white shadow-[0_0_18px_rgba(255,255,255,0.25)]'
-                    : 'bg-white/[0.04] border-white/[0.12] text-white/40 hover:bg-white/10 hover:text-white hover:border-white/20'
-                )}
+                onClick={() => setActiveLabel(isActive && label !== 'ALL' ? 'ALL' : label)}
+                className="px-3 py-1 text-[9px] rounded-full transition-all cursor-pointer whitespace-nowrap border uppercase tracking-wider font-black"
+                style={isActive ? {
+                  background: `${color}22`,
+                  borderColor: color,
+                  color: color,
+                  boxShadow: `0 0 14px ${color}55`,
+                } : {
+                  background: 'rgba(255,255,255,0.04)',
+                  borderColor: 'rgba(255,255,255,0.12)',
+                  color: 'rgba(255,255,255,0.4)',
+                }}
               >
-                <span className={isActive ? 'text-black/30' : 'text-white/20'}># </span>
+                <span style={{ opacity: 0.5 }}># </span>
                 {label}
               </button>
             );

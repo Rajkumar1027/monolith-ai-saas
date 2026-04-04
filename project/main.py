@@ -539,6 +539,30 @@ def extract_clean_text(payload):
         print("Decoding error:", e)
         return "Failed to decode email."
 
+
+def classify_email(subject: str, body: str) -> str:
+    """
+    Keyword-based neural label classifier.
+    Checks subject first (higher signal), then body as fallback.
+    """
+    text = (subject + " " + body[:500]).lower()
+
+    if any(k in text for k in ["asap", "urgent", "immediately", "critical", "emergency", "high priority", "escalat"]):
+        return "URGENT"
+    if any(k in text for k in ["invoice", "payment", "billing", "charge", "refund", "subscription", "receipt", "transaction"]):
+        return "BILLING"
+    if any(k in text for k in ["legal", "contract", "amendment", "compliance", "gdpr", "terms", "lawsuit", "attorney"]):
+        return "LEGAL"
+    if any(k in text for k in ["support", "ticket", "help", "issue", "bug", "error", "broken", "fix", "problem"]):
+        return "SUPPORT"
+    if any(k in text for k in ["feature", "request", "suggestion", "improve", "enhancement", "roadmap", "product"]):
+        return "FEATURE"
+    if any(k in text for k in ["report", "analytics", "monthly", "weekly", "summary", "digest", "metrics", "kpi"]):
+        return "REPORTING"
+    if any(k in text for k in ["audit", "policy", "regulation", "compliance", "data residency", "pipl", "pdpa"]):
+        return "COMPLIANCE"
+    return "GENERAL"
+
 @app.get("/api/emails/sync")
 async def sync_live_emails(user_email: str):
     """
@@ -605,7 +629,8 @@ async def sync_live_emails(user_email: str):
                 "subject": subject,
                 "full_text": clean_body,
                 "sentiment": ai_label,
-                "confidence": ai_score
+                "confidence": ai_score,
+                "label": classify_email(subject, clean_body),
             })
 
     return {
