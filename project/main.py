@@ -449,83 +449,140 @@ async def ask_monolith(request: SynthesisRequest):
         fallback = {"summary": "Error: Neural connection lost.", "positive_insights": [], "critical_issues": [], "neutral_observations": [], "actionable_suggestions": []}
         return {"error": str(e), "answer": fallback}
 
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    try:
+        print(f"📁 Upload received: {file.filename}, type: {file.content_type}")
+        
+        contents = await file.read()
+        
+        if not contents:
+            raise HTTPException(status_code=400, detail="Empty file")
+        
+        try:
+            df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
+        except UnicodeDecodeError:
+            df = pd.read_csv(io.StringIO(contents.decode("latin-1")))
+        
+        print(f"✅ CSV parsed: {len(df)} rows, columns: {list(df.columns)}")
+        
+        rows_stored = 0
+        from project.db.pinecone_db import index
+        if index is not None:
+            try:
+                from project.ai.embedding import get_embedding
+                vectors = []
+                for i, row in df.iterrows():
+                    text = " ".join([str(v) for v in row.values if str(v) != 'nan'])
+                    if text.strip():
+                        embedding = get_embedding(text)
+                        blob = TextBlob(text)
+                        polarity = blob.sentiment.polarity
+                        sentiment = "Positive" if polarity > 0.1 else "Negative" if polarity < -0.1 else "Neutral"
+                        vectors.append({
+                            "id": f"row_{i}_{file.filename}",
+                            "values": embedding,
+                            "metadata": {
+                                "text": text[:500],
+                                "sentiment": sentiment,
+                                "filename": file.filename
+                            }
+                        })
+                if vectors:
+                    index.upsert(vectors=vectors)
+                    rows_stored = len(vectors)
+                    print(f"✅ Stored {rows_stored} vectors in Pinecone")
+            except Exception as e:
+                print(f"⚠️ Pinecone storage failed: {e}")
+        
+        return {
+            "message": "File uploaded successfully",
+            "filename": file.filename,
+            "rows": len(df),
+            "columns": list(df.columns),
+            "rows_stored": rows_stored
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ UPLOAD_ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/analyze")
 @limiter.limit("5/minute")
-async def analyze(request: Request, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
-    # 1. Validation
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only CSV files are allowed")
-    
-    contents = await file.read()
-    if len(contents) > 2 * 1024 * 1024:  # 2MB Limit
-        raise HTTPException(status_code=400, detail="File too large (Max 2MB)")
-    
+async def analyze(request: Request, file: UploadFile = File(...)):
     try:
-        df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
+        print(f"📊 Analyze received: {file.filename}")
+        contents = await file.read()
+
+        if not contents:
+            raise HTTPException(status_code=400, detail="Empty file")
+
+        try:
+            df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
+        except UnicodeDecodeError:
+            df = pd.read_csv(io.StringIO(contents.decode("latin-1")))
+
+        if df.empty:
+            raise HTTPException(status_code=400, detail="CSV file is empty")
+
+        # Find the best text column
+        text_col = None
+        for col in df.columns:
+            if any(word in col.lower() for word in ['text', 'feedback', 'comment', 'review', 'message']):
+                text_col = col
+                break
+        if text_col is None:
+            text_col = df.columns[0]
+
+        print(f"📝 Using column: '{text_col}'")
+
+        sentiments = []
+        for text in df[text_col].dropna():
+            blob = TextBlob(str(text))
+            polarity = blob.sentiment.polarity
+            if polarity > 0.1:
+                sentiments.append("positive")
+            elif polarity < -0.1:
+                sentiments.append("negative")
+            else:
+                sentiments.append("neutral")
+
+        total = len(sentiments)
+        positive = sentiments.count("positive")
+        negative = sentiments.count("negative")
+        neutral = sentiments.count("neutral")
+
+        pos_pct  = round(positive / total * 100 if total else 0, 1)
+        neg_pct  = round(negative / total * 100 if total else 0, 1)
+        neu_pct  = round(neutral  / total * 100 if total else 0, 1)
+
+        summary = (f"Analyzed {total} feedback items. "
+                   f"{positive} positive ({pos_pct}%), "
+                   f"{neutral} neutral ({neu_pct}%), "
+                   f"{negative} negative ({neg_pct}%).")
+
+        print(f"✅ Analysis complete: {summary}")
+
+        return {
+            "summary": summary,
+            "total": total,
+            "positive": positive,
+            "negative": negative,
+            "neutral": neutral,
+            "positive_pct": pos_pct,
+            "negative_pct": neg_pct,
+            "neutral_pct": neu_pct,
+            "rows": total
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"CSV Parse Error: {str(e)}")
-        raise HTTPException(status_code=400, detail="Failed to parse CSV")
-
-    if df.empty:
-        raise HTTPException(status_code=400, detail="CSV file is empty")
-
-    if len(df) > 500:
-        logger.info(f"Trimming CSV from {len(df)} to 500 rows for AI safety.")
-        df = df.head(500)
-
-    # 2. AI Caching check
-    csv_hash = generate_csv_hash(df)
-
-    owner_email = current_user.get("email", current_user.get("username"))
-    
-    cached_result = collection.find_one({"owner": owner_email, "csv_hash": csv_hash})
-    if cached_result:
-        logger.info(f"Returning cached result for {owner_email}")
-        cached_result["_id"] = str(cached_result["_id"])
-        return cached_result
-
-    # 3. Call AI with improved data sampling (50 random rows for better trends)
-    sample_df = df.sample(n=min(len(df), 50), random_state=42)
-    prompt = f"""
-    Analyze this customer feedback dataset (Sample size: {len(sample_df)} rows):
-    {sample_df.to_string()}
-
-    Act as 'MONOLITH Neural Intelligence'. Provide a deep enterprise-grade analysis.
-    Return STRICT JSON ONLY format:
-    {{
-      "urgency_score": number (1-10),
-      "topic": "Main high-level theme",
-      "summary": "1-2 sentence executive overview",
-      "issues": ["list of 3-5 specific problems found in the text"],
-      "auto_reply": "A professional, empathetic draft response addressing the main concern"
-    }}
-    """
-
-    ai_response = call_ai(prompt)
-
-    try:
-        ai_text = ai_response["candidates"][0]["content"]["parts"][0]["text"]
-        ai_text = ai_text.replace('```json', '').replace('```', '').strip()
-        data = json.loads(ai_text)
-    except Exception as e:
-        logger.error(f"Gemini output parsing failed: {str(e)}")
-        data = {"error": "Invalid AI response", "raw": str(ai_response)}
-
-    document = {
-        "owner": owner_email,
-        "username": current_user.get("username"),
-        "analysis": data,
-        "rows": len(df),
-        "filename": getattr(file, "filename", "upload.csv"),
-        "csv_hash": csv_hash,
-        "created_at": pd.Timestamp.now().isoformat()
-    }
-    collection.insert_one(document)
-
-    if "_id" in document:
-        document["_id"] = str(document["_id"])
-        
-    return document
+        print(f"❌ ANALYZE_ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/feedback/upload")
