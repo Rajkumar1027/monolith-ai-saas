@@ -119,7 +119,16 @@ export const AuthPage: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication');
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('incorrect')) {
+        setError('Invalid email or password. Please try again.');
+      } else if (msg.toLowerCase().includes('session expired')) {
+        setError('Your session has expired. Please log in again.');
+      } else if (msg.toLowerCase().includes('database') || msg.toLowerCase().includes('service')) {
+        setError('Service temporarily unavailable. Please try again shortly.');
+      } else {
+        setError(msg || 'An error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

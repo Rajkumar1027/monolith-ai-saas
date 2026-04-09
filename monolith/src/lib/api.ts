@@ -41,44 +41,20 @@ export async function safeFetch(url: string, options: RequestInit = {}): Promise
     const response = await makeRequest();
 
     if (response.status === 401) {
-      if (!isRefreshing) {
-        isRefreshing = true;
+      // Auth endpoints (login/register) return 401 for wrong credentials — never try to refresh
+      const isAuthRequest = url.includes('/login') || url.includes('/register');
 
-        try {
-          const refreshRes = await fetch(`${BASE_URL}/refresh`, {
-            method: 'POST',
-            credentials: 'include',
-          });
-
-          if (refreshRes.ok) {
-            const data = await refreshRes.json();
-            localStorage.setItem('access_token', data.access_token);
-            
-            // Resolve the queue
-            refreshQueue.forEach((cb) => cb());
-            refreshQueue = [];
-            isRefreshing = false;
-            
-            // Retry the original request
-            return makeRequest();
-          } else {
-            // Refresh failed — clear stale token and throw; let callers handle gracefully
-            localStorage.removeItem('access_token');
-            isRefreshing = false;
-            throw new Error('Session expired');
-          }
-        } catch (error) {
-          isRefreshing = false;
-          throw error;
-        }
+      if (isAuthRequest) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Invalid credentials');
       }
 
-      // If already refreshing, wait for it to finish and then retry
-      return new Promise((resolve) => {
-        refreshQueue.push(() => {
-          resolve(makeRequest());
-        });
-      });
+      // For all other protected endpoints, session has truly expired — clear and redirect
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('monolith_user');
+      localStorage.removeItem('monolith_auth');
+      window.location.href = '/login?error=401';
+      throw new Error('Session expired');
     }
 
     if (!response.ok) {

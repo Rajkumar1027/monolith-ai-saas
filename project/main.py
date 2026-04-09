@@ -210,31 +210,46 @@ async def login(request: Request):
         email = (body.get("email") or body.get("EMAIL") or body.get("username") or body.get("user") or "").strip()
         password = (body.get("password") or body.get("PASSWORD") or body.get("pass") or "").strip()
         
+        print(f"🔍 Login attempt: {email}")
+        
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email and password required")
         
         existing = db.users.find_one({"email": email})
         if not existing:
-            raise HTTPException(status_code=401, detail="Incorrect email or password")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Consistent 72-byte truncation for bcrypt
         password_bytes = password.encode("utf-8")[:72]
         password_truncated = password_bytes.decode("utf-8", errors="ignore")
         
         if not verify_password(password_truncated, existing["password"]):
-            raise HTTPException(status_code=401, detail="Incorrect email or password")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
         
+        # Generate proper JWT tokens (sub = email to match get_current_user)
         access_token = create_access_token(data={"sub": email})
+        refresh_token_str = create_refresh_token(data={"sub": email})
         
-        print(f"✅ User logged in: {email}")
-        return {
+        print(f"✅ Login successful: {email}")
+        
+        # Return access token in body and refresh token as HTTP-only cookie
+        response = JSONResponse(content={
             "message": "Login successful",
             "access_token": access_token,
             "user": {
                 "email": email,
                 "username": existing.get("username", "")
             }
-        }
+        })
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token_str,
+            httponly=True,
+            secure=False,   # Set to True in production (HTTPS)
+            samesite="lax",
+            max_age=7 * 24 * 60 * 60  # 7 days
+        )
+        return response
         
     except HTTPException:
         raise
