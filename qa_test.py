@@ -1,7 +1,7 @@
 import requests
 import json
 
-BASE = "https://monolith-ai-saas.onrender.com"
+BASE = "http://localhost:8000"
 
 def test_endpoints():
     print(f"--- Testing {BASE} ---")

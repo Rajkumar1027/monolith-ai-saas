@@ -8,7 +8,7 @@ from project.db.mongo import users_collection
 
 JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # Unified 24-hour expiration for stable dev
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -42,10 +42,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        email: str = payload.get("sub")
+        if email is None:
             raise credentials_exception
-        user = users_collection.find_one({"username": username})
+        # Unified Lookup: JWT 'sub' contains the email, so we search the 'email' field.
+        user = users_collection.find_one({"email": email})
         if user is None:
             raise credentials_exception
         return user

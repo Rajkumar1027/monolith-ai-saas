@@ -93,7 +93,6 @@ export const AuthPage: React.FC = () => {
         const res = await loginUser({ email: formData.email, password: formData.password });
         if (res.access_token) {
           localStorage.setItem('access_token', res.access_token);
-          localStorage.setItem('monolith_token', res.access_token);
           localStorage.setItem('monolith_user', JSON.stringify(res.user));
           localStorage.setItem('monolith_auth', 'true');
           navigate('/dashboard');
@@ -109,7 +108,6 @@ export const AuthPage: React.FC = () => {
         const res = await registerUser({ username: formData.username, email: formData.email, password: formData.password });
         if (res.access_token) {
           localStorage.setItem('access_token', res.access_token);
-          localStorage.setItem('monolith_token', res.access_token);
           localStorage.setItem('monolith_user', JSON.stringify(res.user));
           localStorage.setItem('monolith_auth', 'true');
           navigate('/dashboard');
@@ -328,7 +326,7 @@ export const AuthPage: React.FC = () => {
               type="button"
               onClick={() => {
                 localStorage.setItem('monolith_auth', 'true');
-                localStorage.setItem('monolith_token', 'dev-token-99');
+                localStorage.setItem('access_token', 'dev-token-99');
                 localStorage.setItem('monolith_user', JSON.stringify({ email: 'dev@monolith.ai', username: 'DEV_USER' }));
                 window.location.href = '/dashboard';
               }}

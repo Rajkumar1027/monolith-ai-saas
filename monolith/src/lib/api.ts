@@ -128,17 +128,27 @@ export async function checkBackendHealth(): Promise<boolean> {
 }
 
 /**
- * POST /upload — upload a CSV file to store embeddings in Pinecone.
- * Returns `{ message: string }`.
+ * POST /api/feedback/upload — upload a CSV file to process feedback data with NLP (TextBlob)
+ * Returns the parsed feedback data, sentiment logic, and keywords.
  */
-export async function uploadFile(file: File) {
+export async function uploadFeedbackFile(file: File) {
   const form = new FormData();
   form.append('file', file);
-  const res = await safeFetch(`${BASE_URL}/upload`, {
+  const res = await safeFetch(`${BASE_URL}/api/feedback/upload`, {
     method: 'POST',
     body: form,
   });
-  return res.json() as Promise<{ message: string }>;
+  return res.json() as Promise<{
+    total_rows: number;
+    average_sentiment: number;
+    top_keywords: string[];
+    processed_data: Array<{
+      text: string;
+      sentiment: string;
+      confidence: number;
+      polarity: number;
+    }>;
+  }>;
 }
 
 /**
@@ -159,12 +169,19 @@ export async function analyzeFile(file: File) {
  * POST /ask?question=... — ask the AI assistant a question.
  * Returns `{ context: string, answer: string }`.
  */
-export async function askQuestion(question: string) {
-  const res = await safeFetch(
-    `${BASE_URL}/ask?question=${encodeURIComponent(question)}`,
-    { method: 'POST' }
-  );
-  return res.json() as Promise<{ context: string; answer: string }>;
+/**
+ * POST /api/feedback/ask — Ask the AI Intelligence Assistant a question about the uploaded dataset.
+ */
+export async function askQuestion(prompt: string, context_summary: string = "General customer feedback dataset.") {
+  const res = await safeFetch(`${BASE_URL}/api/feedback/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      prompt,
+      context_summary
+    }),
+  });
+  return res.json() as Promise<{ context: string; answer: string | any }>;
 }
 
 export async function getHistory() {

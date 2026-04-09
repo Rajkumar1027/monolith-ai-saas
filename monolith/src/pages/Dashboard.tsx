@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Layout } from '../components/Layout';
-import { FeedbackAnalysisPage } from './FeedbackAnalysisPage';
+import FeedbackAnalysisPage from './FeedbackAnalysisPage';
 import { EmailAnalysisPage } from './EmailAnalysisPage';
 import { HistoryPage } from './HistoryPage';
 import { ProfilePage } from './ProfilePage';

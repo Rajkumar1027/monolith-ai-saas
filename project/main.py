@@ -1,4 +1,11 @@
-import os 
+import os
+import nltk
+# Force download of required NLP data for TextBlob
+for res in ['punkt', 'averaged_perceptron_tagger', 'brown', 'punkt_tab']:
+    try:
+        nltk.data.find(f'tokenizers/{res}')
+    except LookupError:
+        nltk.download(res)
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -73,6 +80,7 @@ def call_ai(prompt):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
         "http://localhost:5176",
@@ -89,9 +97,18 @@ app.add_middleware(
 async def startup_db_client():
     try:
         # Create indexes for performance
-        collection.create_index([("owner", 1), ("created_at", -1)])
-        users_collection.create_index("username", unique=True)
-        logger.info("MongoDB indexes verified/created.")
+        if collection is not None:
+            collection.create_index([("owner", 1), ("created_at", -1)])
+            logger.info("MongoDB 'analysis' indexes verified/created.")
+        else:
+            logger.error("CRITICAL: MongoDB 'analysis' collection not available. Indices not created.")
+
+        if users_collection is not None:
+            users_collection.create_index("username", unique=True)
+            logger.info("MongoDB 'users' indexes verified/created.")
+        else:
+            logger.error("CRITICAL: MongoDB 'users' collection not available. Indices not created.")
+
     except Exception as e:
         logger.warning(f"Failed to create/verify MongoDB indexes: {e}")
 
@@ -375,6 +392,48 @@ async def google_oauth_callback(request: Request):
     }
 
 
+class SynthesisRequest(BaseModel):
+    prompt: str
+    context_summary: str = "" 
+
+@app.post("/api/feedback/ask")
+async def ask_monolith(request: SynthesisRequest):
+    try:
+        system_prompt = f"""
+        You are an AI Customer Feedback Intelligence Engine — an elite data analysis system.
+        The user is asking a question about their recently uploaded feedback data.
+        Context of their data: {request.context_summary}
+
+        User Question: {request.prompt}
+
+        Analyze the full context and provide a comprehensive, data-driven intelligence report.
+        Calculate or estimate the percentage split of Positive, Negative, and Neutral sentiments.
+        Return ONLY a valid JSON object. No markdown. No extra text. Strictly this structure:
+        {{
+          "summary": "A high-level paragraph starting with calculated percentages (e.g. 'The overall sentiment shows a 53% positive and 47% negative split...').",
+          "positive_insights": ["What customers appreciate most", "Key areas of strength"],
+          "critical_issues": ["Urgent or repeated complaints", "High-risk areas requiring immediate attention"],
+          "neutral_observations": ["Stable areas or patterns with unclear direction"],
+          "actionable_suggestions": ["How to fix or improve negative feedback", "How to scale positive trends"]
+        }}
+        """
+
+        ai_response = call_ai(system_prompt)
+        answer = ai_response["candidates"][0]["content"]["parts"][0]["text"]
+
+        import json
+        clean_json = answer.replace('```json', '').replace('```', '').strip()
+        try:
+            parsed = json.loads(clean_json)
+        except:
+            parsed = {"summary": clean_json, "positive_insights": [], "critical_issues": [], "neutral_observations": [], "actionable_suggestions": []}
+
+        return {"answer": parsed}
+    except Exception as e:
+        logger.error(f"Synthesis ask error: {str(e)}")
+        fallback = {"summary": "Error: Neural connection lost.", "positive_insights": [], "critical_issues": [], "neutral_observations": [], "actionable_suggestions": []}
+        return {"error": str(e), "answer": fallback}
+
 @app.post("/analyze")
 @limiter.limit("5/minute")
 async def analyze(request: Request, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
@@ -454,15 +513,138 @@ async def analyze(request: Request, file: UploadFile = File(...), current_user: 
     return document
 
 
-@app.post("/upload")
-async def upload(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
-    df = pd.read_csv(file.file)
+@app.post("/api/feedback/upload")
+async def process_feedback_upload(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    try:
+        df = pd.read_csv(file.file)
+    except Exception as e:
+        logger.error(f"Failed to parse CSV: {e}")
+        raise HTTPException(status_code=400, detail="Invalid CSV format")
 
-    for i, row in df.iterrows():
-        text = str(row[0])  # assuming first column is feedback
-        store_feedback(str(i), text)
+    possible_columns = ['feedback', 'text', 'comment', 'review', 'message']
+    target_col = next((c for c in df.columns if c.lower() in possible_columns), None)
+    
+    if target_col is None:
+        raise HTTPException(status_code=400, detail=f"CSV must contain one of these columns: {', '.join(possible_columns)}")
 
-    return {"message": "Data stored in Pinecone"}
+    processed_data = []
+    total_polarity = 0.0
+    all_words = []
+
+    for _, row in df.iterrows():
+        if pd.isna(row[target_col]):
+            continue
+        
+        text_val = str(row[target_col]).strip()
+        if not text_val:
+            continue
+            
+        blob = TextBlob(text_val)
+        polarity = blob.sentiment.polarity
+        total_polarity += polarity
+        
+        # Categorize Sentiment
+        if polarity > 0.1:
+            sentiment_label = "Positive"
+        elif polarity < -0.1:
+            sentiment_label = "Negative"
+        else:
+            sentiment_label = "Neutral"
+
+        # Collect keywords (Nouns and Adjectives) for overall top_keywords
+        for word, tag in blob.tags:
+            # We want words longer than 2 characters
+            if len(word) > 2 and tag in ('NN', 'NNS', 'JJ'):
+                all_words.append(word.lower())
+
+        processed_data.append({
+            "text": text_val,
+            "sentiment": sentiment_label,
+            "confidence": round(abs(polarity), 2) if abs(polarity) > 0.1 else 0.50,
+            "polarity": polarity
+        })
+
+    total_rows = len(processed_data)
+    if total_rows == 0:
+        raise HTTPException(status_code=400, detail="No readable text found in CSV")
+
+    average_sentiment = (total_polarity / total_rows) * 100
+
+    from collections import Counter
+    keyword_counts = Counter(all_words)
+    top_keywords = [word for word, count in keyword_counts.most_common(5)]
+
+    # Deep Intelligence Report Generation (Gemini)
+    pos_count = sum(1 for row in processed_data if row["sentiment"] == "Positive")
+    neg_count = sum(1 for row in processed_data if row["sentiment"] == "Negative")
+    neu_count = sum(1 for row in processed_data if row["sentiment"] == "Neutral")
+    pos_pct = round((pos_count / total_rows) * 100, 1)
+    neg_pct = round((neg_count / total_rows) * 100, 1)
+    neu_pct = round((neu_count / total_rows) * 100, 1)
+
+    fallback_report = {
+        "summary": f"Dataset contains {pos_pct}% positive, {neg_pct}% negative, and {neu_pct}% neutral feedback. Insufficient data for a full neural executive briefing.",
+        "positive_insights": [],
+        "critical_issues": [],
+        "neutral_observations": [],
+        "actionable_suggestions": []
+    }
+
+    try:
+        sorted_data = sorted(processed_data, key=lambda x: x["polarity"])
+        top_negative = [row["text"] for row in sorted_data[:8]]
+        top_positive = [row["text"] for row in sorted_data[-8:]]
+        neutral_rows = [row["text"] for row in processed_data if row["sentiment"] == "Neutral"][:5]
+
+        if len(processed_data) >= 2:
+            prompt = f"""You are an AI Customer Feedback Intelligence Engine — an elite enterprise data analysis system.
+
+You are analyzing a real customer feedback dataset with the following verified statistics:
+- Total responses: {total_rows}
+- Positive: {pos_count} responses ({pos_pct}%)
+- Negative: {neg_count} responses ({neg_pct}%)
+- Neutral: {neu_count} responses ({neu_pct}%)
+
+Top positive feedback samples:
+{top_positive}
+
+Top negative feedback samples:
+{top_negative}
+
+Neutral feedback samples:
+{neutral_rows}
+
+Generate a comprehensive, multi-tiered intelligence report based on this data.
+Return ONLY a valid JSON object. No markdown. No extra text. Strictly this structure:
+{{
+  "summary": "A high-level paragraph that starts with the exact percentage split (e.g. 'The overall sentiment reveals a {pos_pct}% positive and {neg_pct}% negative split across {total_rows} responses...'). Summarise the overarching mood and most significant finding.",
+  "positive_insights": ["Specific highlight of what customers praise", "Another strength or trend from positive samples"],
+  "critical_issues": ["Most urgent or repeated complaint from negative samples", "Another high-risk issue that needs action"],
+  "neutral_observations": ["A pattern or theme from neutral feedback", "An area that is neither praised nor criticized"],
+  "actionable_suggestions": ["Concrete fix or improvement based on the negative feedback", "Strategy to amplify the positive trends"]
+}}"""
+            ai_response = call_ai(prompt)
+            ai_text = ai_response["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+            import json
+            clean_json = ai_text.replace('```json', '').replace('```', '').strip()
+            try:
+                ai_report = json.loads(clean_json)
+            except:
+                ai_report = {**fallback_report, "summary": clean_json}
+        else:
+            ai_report = fallback_report
+    except Exception as e:
+        logger.error(f"Executive Summary Error: {e}")
+        ai_report = {**fallback_report, "summary": "Neural Executive Summary currently unavailable due to AI framework latency. Proceed with raw intelligence."}
+
+    return {
+        "total_rows": total_rows,
+        "average_sentiment": round(average_sentiment, 2),
+        "top_keywords": top_keywords,
+        "ai_report": ai_report,
+        "processed_data": processed_data
+    }
 
 @app.post("/ask")
 @limiter.limit("20/minute")

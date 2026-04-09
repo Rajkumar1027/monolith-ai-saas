@@ -1,0 +1,94 @@
+﻿.\venv\Scripts\python.exe 
+: Traceback (most recent 
+call last):
+At line:1 char:1
++ 
+.\venv\Scripts\python.exe 
+-c "import project.main" 
+2>&1 | Out-File -F ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo        
+      : NotSpecified: (T  
+  raceback (most recent   
+  call last)::String)     
+[], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+  File "<string>", line 
+1, in <module>
+    import project.main
+  File "C:\Users\grajk\One
+Drive\Desktop\sentimental_
+rework\project\main.py", 
+line 6, in <module>
+    nltk.data.find(f'token
+izers/{res}')
+    ~~~~~~~~~~~~~~^^^^^^^^
+^^^^^^^^^^^^^
+  File "C:\Users\grajk\One
+Drive\Desktop\sentimental_
+rework\venv\Lib\site-packa
+ges\nltk\data.py", line 
+693, in find
+    return 
+find(modified_name, paths)
+  File "C:\Users\grajk\One
+Drive\Desktop\sentimental_
+rework\venv\Lib\site-packa
+ges\nltk\data.py", line 
+679, in find
+    return 
+ZipFilePathPointer(p, 
+zipentry)
+  File "C:\Users\grajk\One
+Drive\Desktop\sentimental_
+rework\venv\Lib\site-packa
+ges\nltk\data.py", line 
+471, in __init__
+    zipfile = OpenOnDemand
+ZipFile(os.path.abspath(zi
+pfile))
+  File "C:\Users\grajk\One
+Drive\Desktop\sentimental_
+rework\venv\Lib\site-packa
+ges\nltk\data.py", line 
+1193, in __init__
+    
+ZipFile.__init__(self, 
+filename)
+    ~~~~~~~~~~~~~~~~^^^^^^
+^^^^^^^^^^
+  File "C:\Users\grajk\One
+Drive\Desktop\sentimental_
+rework\venv\Lib\site-packa
+ges\nltk\pathsec.py", 
+line 265, in __init__
+    
+super().__init__(file, 
+*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^
+^^^^^^^^^^^^^^^^^
+  File "C:\Users\grajk\App
+Data\Local\Programs\Python
+\Python314\Lib\zipfile\__i
+nit__.py", line 1471, in 
+__init__
+    
+self._RealGetContents()
+    
+~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\grajk\App
+Data\Local\Programs\Python
+\Python314\Lib\zipfile\__i
+nit__.py", line 1538, in 
+_RealGetContents
+    raise 
+BadZipFile("File is not a 
+zip file")
+zipfile.BadZipFile: File 
+is not a zip file
+DEBUG: Opening ZipFile C:\Users\grajk\AppData\Roaming\nltk_data\tokenizers\punkt.zip
