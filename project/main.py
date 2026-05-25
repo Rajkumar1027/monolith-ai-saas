@@ -1,4 +1,5 @@
 import os
+import re
 import nltk
 # Force download of required NLP data for TextBlob
 for res in ['punkt', 'averaged_perceptron_tagger', 'brown', 'punkt_tab']:
@@ -28,6 +29,7 @@ from project.db.mongo import collection, users_collection, db
 from project.auth import hash_password, verify_password, create_access_token, create_refresh_token, get_current_user
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
+from groq import Groq
 
 # --- CONFIGURATION ---
 IS_PROD = os.getenv("IS_PROD", "False").lower() == "true"
@@ -39,8 +41,33 @@ logger = logging.getLogger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "https://monolith-ai-saas.onrender.com",
+        "https://*.vercel.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -54,44 +81,78 @@ def generate_csv_hash(df):
     sample = df.head(10).to_string()
     return hashlib.md5(sample.encode()).hexdigest()
 
+def clean_llm_json(raw_text: str) -> dict:
+    """
+    Senior utility to sanitize and parse JSON response from LLMs.
+    Strips Markdown code blocks and extracts valid JSON objects.
+    """
+    if not raw_text:
+        return {}
+    try:
+        # Strip code block backticks if they exist
+        cleaned = re.sub(r'```(?:json)?\s*|\s*```', '', raw_text, flags=re.S).strip()
+        return json.loads(cleaned)
+    except (json.JSONDecodeError, Exception) as e:
+        logger.warning(f"Neural JSON sub-parsing failed: {e}. Attempting deep extraction.")
+        # Fallback: Find anything between brace delimiters
+        try:
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+        except:
+            pass
+        return {}
+
 
 # load_dotenv()  # Handled at top
 
 API_KEY = os.getenv("GEMINI_API_KEY")
+groq_key = os.getenv("GROQ_API_KEY")
+groq_client = Groq(api_key=groq_key) if groq_key else None
 
-def call_ai(prompt):
+def call_ai(prompt: str, system_instruction: str = "You are MONOLITH Intelligence Engine, an elite AI data system.") -> str:
+    """
+    Unified text generation engine using Groq Llama 3 for sub-second latency.
+    Falls back to Gemini 2.0 Flash only if Groq is unconfigured or fails.
+    """
+    if groq_client:
+        try:
+            logger.info("Calling Groq API (llama-3.1-8b-instant)...")
+            response = groq_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=1000,
+                temperature=0.3,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Groq API call failed: {e}. Falling back to Gemini...")
+            
+    # --- GEMINI FALLBACK ---
+    if not API_KEY:
+        raise HTTPException(status_code=502, detail="AI service unconfigured")
     url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={API_KEY}"
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
+        "contents": [{"parts": [{"text": f"{system_instruction}\n\n{prompt}"}]}]
     }
     try:
-        logger.info("Calling Gemini API...")
-        response = requests.post(url, json=payload, timeout=20)
-        response.raise_for_status()
-        return response.json()
+        logger.info("Calling Gemini API (Fallback)...")
+        res = requests.post(url, json=payload, timeout=15)
+        res.raise_for_status()
+        data = res.json()
+        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
     except requests.exceptions.Timeout:
         logger.error("Gemini request timed out")
         raise HTTPException(status_code=504, detail="AI service timed out")
-    except Exception as e:
-        logger.error(f"Gemini error: {str(e)}")
+    except Exception as gem_err:
+        logger.error(f"AI generation completely failed: {gem_err}")
         raise HTTPException(status_code=502, detail="AI service error")
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:5176",
-        "http://localhost:3000",
-        "https://monolith-ai-saas.onrender.com",
-        "https://*.vercel.app"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 @app.on_event("startup")
 async def startup_db_client():
@@ -282,6 +343,21 @@ async def logout(response: Response):
     response.delete_cookie("refresh_token")
     return {"message": "Logged out successfully"}
 
+# ── Check OAuth Status ─────────────────────────────────────────────────────────
+@app.get("/api/user/oauth-status")
+async def check_oauth_status(current_user: dict = Depends(get_current_user)):
+    """
+    Check if the current user has connected their Google Workspace.
+    Returns { "isConnected": true/false }
+    """
+    user_email = current_user.get("email", "")
+    user = users_collection.find_one({"email": user_email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    has_google_token = bool(user.get("google_access_token"))
+    return {"isConnected": has_google_token}
+
 # ── Google OAuth 2.0 Callback ──────────────────────────────────────────────────
 @app.api_route("/auth/google/callback", methods=["GET", "POST"])
 async def google_oauth_callback(request: Request):
@@ -433,15 +509,11 @@ async def ask_monolith(request: SynthesisRequest):
         }}
         """
 
-        ai_response = call_ai(system_prompt)
-        answer = ai_response["candidates"][0]["content"]["parts"][0]["text"]
+        answer = call_ai(prompt=request.prompt, system_instruction=system_prompt)
 
-        import json
-        clean_json = answer.replace('```json', '').replace('```', '').strip()
-        try:
-            parsed = json.loads(clean_json)
-        except:
-            parsed = {"summary": clean_json, "positive_insights": [], "critical_issues": [], "neutral_observations": [], "actionable_suggestions": []}
+        parsed = clean_llm_json(answer)
+        if not parsed:
+            parsed = {"summary": answer, "positive_insights": [], "critical_issues": [], "neutral_observations": [], "actionable_suggestions": []}
 
         return {"answer": parsed}
     except Exception as e:
@@ -452,10 +524,15 @@ async def ask_monolith(request: SynthesisRequest):
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
+        from project.db.pinecone_db import index
+        from project.db.mongo import db
+        from project.ai.embedding import get_embedding
+        import uuid
+        from datetime import datetime, timezone
+        
         print(f"📁 Upload received: {file.filename}, type: {file.content_type}")
         
         contents = await file.read()
-        
         if not contents:
             raise HTTPException(status_code=400, detail="Empty file")
         
@@ -463,51 +540,69 @@ async def upload_file(file: UploadFile = File(...)):
             df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
         except UnicodeDecodeError:
             df = pd.read_csv(io.StringIO(contents.decode("latin-1")))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Extraction error: {str(e)}")
         
         print(f"✅ CSV parsed: {len(df)} rows, columns: {list(df.columns)}")
         
         rows_stored = 0
-        from project.db.pinecone_db import index
-        if index is not None:
-            try:
-                from project.ai.embedding import get_embedding
-                vectors = []
-                for i, row in df.iterrows():
-                    text = " ".join([str(v) for v in row.values if str(v) != 'nan'])
-                    if text.strip():
-                        embedding = get_embedding(text)
-                        blob = TextBlob(text)
-                        polarity = blob.sentiment.polarity
-                        sentiment = "Positive" if polarity > 0.1 else "Negative" if polarity < -0.1 else "Neutral"
-                        vectors.append({
-                            "id": f"row_{i}_{file.filename}",
-                            "values": embedding,
-                            "metadata": {
-                                "text": text[:500],
-                                "sentiment": sentiment,
-                                "filename": file.filename
-                            }
-                        })
-                if vectors:
-                    index.upsert(vectors=vectors)
-                    rows_stored = len(vectors)
-                    print(f"✅ Stored {rows_stored} vectors in Pinecone")
-            except Exception as e:
-                print(f"⚠️ Pinecone storage failed: {e}")
+        file_id = str(uuid.uuid4())
+        namespace = f"upload_{file_id}"
         
+        if index is not None:
+            ids_list = []
+            embeddings_list = []
+            metadata_list = []
+            
+            for i, row in df.iterrows():
+                text = " ".join([str(v) for v in row.values if str(v) != 'nan'])
+                if text.strip():
+                    embeddings_list.append(get_embedding(text))
+                    ids_list.append(f"row_{i}_{file_id}")
+                    
+                    blob = TextBlob(text)
+                    polarity = blob.sentiment.polarity
+                    sentiment = "Positive" if polarity > 0.1 else "Negative" if polarity < -0.1 else "Neutral"
+                    
+                    metadata_list.append({
+                        "text": text[:500],
+                        "sentiment": sentiment,
+                        "filename": file.filename
+                    })
+            
+            if embeddings_list:
+                # Zip the vectors with their corresponding text chunks as metadata
+                zipped_vectors = list(zip(ids_list, embeddings_list, metadata_list))
+                index.upsert(vectors=zipped_vectors, namespace=namespace)
+                rows_stored = len(embeddings_list)
+                print(f"✅ Stored {rows_stored} vectors in Pinecone namespace: {namespace}")
+        
+        if db is not None:
+            db.files.insert_one({
+                "filename": file.filename,
+                "upload_date": datetime.now(timezone.utc).isoformat(),
+                "pinecone_namespace": namespace
+            })
+            print(f"✅ Stored MongoDB metadata for {file.filename}")
+            
         return {
             "message": "File uploaded successfully",
             "filename": file.filename,
             "rows": len(df),
             "columns": list(df.columns),
-            "rows_stored": rows_stored
+            "rows_stored": rows_stored,
+            "namespace": namespace
         }
         
     except HTTPException:
         raise
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="Extraction error: CSV is empty or malformed.")
     except Exception as e:
-        print(f"❌ UPLOAD_ERROR: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ PIPELINE_ERROR: {e}")
+        if "Extraction error" in str(e) or "empty" in str(e).lower() or isinstance(e, ValueError):
+            raise HTTPException(status_code=400, detail=f"Extraction error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database timeout or internal error: {str(e)}")
 
 
 @app.post("/analyze")
@@ -585,19 +680,76 @@ async def analyze(request: Request, file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── CSV sanitization helpers ──────────────────────────────────────────────────
+
+def _sanitize_csv_string(raw: str) -> str:
+    """
+    Removes outer wrapping quotes from every line of a malformed CSV.
+    Handles both:
+      "Text, Sentiment, Source"   → Text, Sentiment, Source
+      ""I love this!"", Positive  → "I love this!", Positive
+    """
+    lines = raw.splitlines()
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Remove outer quotes wrapping the ENTIRE line
+        if stripped.startswith('"') and stripped.endswith('"'):
+            stripped = stripped[1:-1]
+        # Collapse double-escaped inner quotes left over from the stripping
+        stripped = stripped.replace('""', '"')
+        cleaned.append(stripped)
+    return "\n".join(cleaned)
+
+
+_ACCEPTED_TEXT_COLUMNS = ['feedback', 'text', 'comment', 'review', 'message']
+
+
 @app.post("/api/feedback/upload")
 async def process_feedback_upload(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    # ── 1. Read raw bytes and decode ──────────────────────────────────────────
     try:
-        df = pd.read_csv(file.file)
+        raw_bytes = await file.read()
+        try:
+            raw_str = raw_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            raw_str = raw_bytes.decode("latin-1")  # graceful fallback
+    except Exception as e:
+        logger.error(f"Failed to read uploaded file: {e}")
+        raise HTTPException(status_code=400, detail="Could not read the uploaded file.")
+
+    # ── 2. Sanitize malformed outer quotes ────────────────────────────────────
+    clean_str = _sanitize_csv_string(raw_str)
+
+    # ── 3. Parse with Pandas ──────────────────────────────────────────────────
+    try:
+        df = pd.read_csv(io.StringIO(clean_str))
+    except pd.errors.ParserError as exc:
+        logger.error(f"CSV parser error: {exc}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not parse CSV: {exc}. Ensure columns are comma-separated without outer quotes.",
+        )
     except Exception as e:
         logger.error(f"Failed to parse CSV: {e}")
-        raise HTTPException(status_code=400, detail="Invalid CSV format")
+        raise HTTPException(status_code=400, detail=f"Invalid CSV format: {e}")
 
-    possible_columns = ['feedback', 'text', 'comment', 'review', 'message']
-    target_col = next((c for c in df.columns if c.lower() in possible_columns), None)
-    
+    # ── 4. Normalise column names (strip stray whitespace) ────────────────────
+    df.columns = [c.strip() for c in df.columns]
+
+    # ── 5. Validate required text column ─────────────────────────────────────
+    target_col = next((c for c in df.columns if c.strip().lower() in _ACCEPTED_TEXT_COLUMNS), None)
+
     if target_col is None:
-        raise HTTPException(status_code=400, detail=f"CSV must contain one of these columns: {', '.join(possible_columns)}")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"CSV must contain one of these columns: {', '.join(_ACCEPTED_TEXT_COLUMNS)}. "
+                f"Found: {', '.join(df.columns.tolist())}"
+            ),
+        )
 
     processed_data = []
     total_polarity = 0.0
@@ -629,11 +781,21 @@ async def process_feedback_upload(file: UploadFile = File(...), current_user: di
             if len(word) > 2 and tag in ('NN', 'NNS', 'JJ'):
                 all_words.append(word.lower())
 
+        # Extract the Date/Time column if present (strip accidental whitespace from key)
+        date_val = None
+        for col_key in row.index:
+            if col_key.strip() == "Date/Time":
+                raw_date = row[col_key]
+                if not pd.isna(raw_date):
+                    date_val = str(raw_date).strip()
+                break
+
         processed_data.append({
             "text": text_val,
             "sentiment": sentiment_label,
             "confidence": round(abs(polarity), 2) if abs(polarity) > 0.1 else 0.50,
-            "polarity": polarity
+            "polarity": polarity,
+            "date": date_val,  # "YYYY-MM-DD HH:MM:SS" or None if column absent
         })
 
     total_rows = len(processed_data)
@@ -695,20 +857,35 @@ Return ONLY a valid JSON object. No markdown. No extra text. Strictly this struc
   "neutral_observations": ["A pattern or theme from neutral feedback", "An area that is neither praised nor criticized"],
   "actionable_suggestions": ["Concrete fix or improvement based on the negative feedback", "Strategy to amplify the positive trends"]
 }}"""
-            ai_response = call_ai(prompt)
-            ai_text = ai_response["candidates"][0]["content"]["parts"][0]["text"].strip()
+            ai_text = call_ai(prompt=prompt)
 
-            import json
-            clean_json = ai_text.replace('```json', '').replace('```', '').strip()
-            try:
-                ai_report = json.loads(clean_json)
-            except:
-                ai_report = {**fallback_report, "summary": clean_json}
+            ai_report = clean_llm_json(ai_text)
+            if not ai_report:
+                ai_report = {**fallback_report, "summary": ai_text}
         else:
             ai_report = fallback_report
     except Exception as e:
         logger.error(f"Executive Summary Error: {e}")
         ai_report = {**fallback_report, "summary": "Neural Executive Summary currently unavailable due to AI framework latency. Proceed with raw intelligence."}
+
+    # Save the feedback upload session to database history
+    if db is not None:
+        try:
+            from datetime import datetime, timezone
+            db.feedback_history.insert_one({
+                "owner": current_user.get("email"),
+                "filename": file.filename,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "total_rows": total_rows,
+                "pos_count": pos_count,
+                "neg_count": neg_count,
+                "neu_count": neu_count,
+                "average_sentiment": round(average_sentiment, 2),
+                "top_keywords": top_keywords,
+                "ai_report": ai_report
+            })
+        except Exception as e:
+            logger.warning(f"Failed to record feedback upload history: {e}")
 
     return {
         "total_rows": total_rows,
@@ -743,8 +920,7 @@ async def ask(request: Request, question: str, current_user: dict = Depends(get_
     """
 
     try:
-        ai_response = call_ai(prompt)
-        answer = ai_response["candidates"][0]["content"]["parts"][0]["text"]
+        answer = call_ai(prompt=prompt, system_instruction="Act as the MONOLITH Intelligence Assistant.")
     except Exception as e:
         logger.error(f"Assistant Query Error: {e}")
         answer = "I'm having trouble accessing my neural core. Please try again in a moment."
@@ -761,6 +937,23 @@ def get_history(current_user: dict = Depends(get_current_user)):
     data = list(collection.find({"owner": email}, {"_id": 0}))
     old_data = list(collection.find({"username": current_user.get("username"), "owner": {"$exists": False}}, {"_id": 0}))
     return data + old_data
+
+@app.get("/api/feedback/history")
+def get_feedback_history(current_user: dict = Depends(get_current_user)):
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
+    email = current_user.get("email")
+    data = list(db.feedback_history.find({"owner": email}, {"_id": 0}).sort("created_at", -1))
+    return data
+
+@app.get("/api/email/history")
+def get_email_history(current_user: dict = Depends(get_current_user)):
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
+    email = current_user.get("email")
+    data = list(db.emails.find({"user_email": email}, {"_id": 0}))
+    data.sort(key=lambda x: x.get("date", ""), reverse=True)
+    return data
 
 # Helper function to decode and clean Gmail bodies
 def extract_clean_text(payload):
@@ -806,13 +999,12 @@ class DraftRequest(BaseModel):
 @app.post("/api/generate-draft")
 async def generate_draft(req: DraftRequest):
     """
-    Calls Gemini to generate a professional reply to an email.
+    Calls Gemini/Groq to generate a professional reply to an email.
     """
     length_guide = {"Short": "2-3 sentences", "Med": "1 concise paragraph", "Long": "2-3 thorough paragraphs"}
     length_hint = length_guide.get(req.length, "1 concise paragraph")
 
-    prompt = f"""You are MONOLITH Neural Composer, an elite AI executive assistant.
-A user has received an email and needs a {req.tone.lower()} reply.
+    prompt = f"""A user has received an email and needs a {req.tone.lower()} reply.
 
 Original email from: {req.sender}
 Subject: {req.subject}
@@ -825,9 +1017,10 @@ Do NOT add placeholders like [Your Name]. Write the complete, ready-to-send repl
 Start directly with the greeting."""
 
     try:
-        ai_response = call_ai(prompt)
-        draft = ai_response["candidates"][0]["content"]["parts"][0]["text"].strip()
+        draft = call_ai(prompt=prompt, system_instruction="You are MONOLITH Neural Composer, an elite AI executive assistant.")
         return {"draft": draft}
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         logger.error(f"Draft generation failed: {e}")
         raise HTTPException(status_code=500, detail="Draft generation failed")
@@ -998,8 +1191,7 @@ Write a sharp, data-driven intelligence report. Sound like a Bloomberg terminal,
 
     report = "Intelligence report unavailable."
     try:
-        ai_res  = call_ai(report_prompt)
-        report  = ai_res["candidates"][0]["content"]["parts"][0]["text"].strip()
+        report  = call_ai(prompt=report_prompt)
     except Exception as e:
         logger.warning(f"Velocity report generation failed: {e}")
 
@@ -1065,7 +1257,11 @@ async def sync_live_emails(user_email: str):
         detail_res = requests.get(detail_url, headers=headers)
         
         if detail_res.status_code == 200:
-            payload = detail_res.json().get("payload", {})
+            detail_json = detail_res.json()
+            payload = detail_json.get("payload", {})
+            internal_ms = int(detail_json.get("internalDate", 0))
+            from datetime import datetime, timezone
+            date_str = datetime.fromtimestamp(internal_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M") if internal_ms else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
             
             # Extract Headers
             headers_list = payload.get("headers", [])
@@ -1104,6 +1300,7 @@ async def sync_live_emails(user_email: str):
                 "sentiment": ai_label,
                 "confidence": ai_score,
                 "label": classify_email(subject, clean_body),
+                "date": date_str,
             }
             email_data.append(email_dict)
 

@@ -1,0 +1,13 @@
+[nltk_data] Downloading package averaged_perceptron_tagger to
+[nltk_data]     C:\Users\grajk\AppData\Roaming\nltk_data...
+[nltk_data]   Package averaged_perceptron_tagger is already up-to-
+[nltk_data]       date!
+[nltk_data] Downloading package brown to
+[nltk_data]     C:\Users\grajk\AppData\Roaming\nltk_data...
+[nltk_data]   Package brown is already up-to-date!
+INFO:     Started server process [36596]
+INFO:     Waiting for application startup.
+INFO:project.main:MongoDB 'analysis' indexes verified/created.
+INFO:project.main:MongoDB 'users' indexes verified/created.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)

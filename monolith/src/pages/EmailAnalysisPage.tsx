@@ -184,6 +184,34 @@ export const EmailAnalysisPage = () => {
     if (isGmailConnected) fetchVelocity();
   }, [isGmailConnected, fetchVelocity]);
 
+  // ─── Check OAuth Status on Mount ──────────────────────────────────────────────
+  useEffect(() => {
+    const checkOAuthStatus = async () => {
+      try {
+        const token = localStorage.getItem('monolith_token');
+        if (!token) return;
+        
+        const res = await fetch(`${API_URL}/api/user/oauth-status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.isConnected) {
+            setIsGmailConnected(true);
+          }
+        }
+      } catch (err) {
+        // Silent fail - user is not connected yet
+        console.debug('OAuth status check failed:', err);
+      }
+    };
+    
+    checkOAuthStatus();
+  }, [API_URL]); // Run once on mount
+
   const handleConnectGmail = () => {
     const rootUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
 

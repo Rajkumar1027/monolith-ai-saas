@@ -15,6 +15,21 @@ export class BackendOfflineError extends Error {
   }
 }
 
+/**
+ * Error thrown for any non-2xx response.
+ * Always carries the exact `detail` string from the FastAPI error body
+ * so callers can surface it directly in the UI without string manipulation.
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public statusCode?: number
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 let isRefreshing = false;
 let refreshQueue: Array<() => void> = [];
 
@@ -46,7 +61,7 @@ export async function safeFetch(url: string, options: RequestInit = {}): Promise
 
       if (isAuthRequest) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Invalid credentials');
+        throw new ApiError(errorData.detail || 'Invalid credentials', 401);
       }
 
       // For all other protected endpoints, session has truly expired — clear and redirect
@@ -54,12 +69,24 @@ export async function safeFetch(url: string, options: RequestInit = {}): Promise
       localStorage.removeItem('monolith_user');
       localStorage.removeItem('monolith_auth');
       window.location.href = '/login?error=401';
-      throw new Error('Session expired');
+      throw new ApiError('Session expired', 401);
     }
 
     if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(text || "Server error");
+      // Extract the exact FastAPI `detail` field from the JSON error body
+      let detail = `Request failed with status ${response.status}.`;
+      try {
+        const errorBody = await response.json();
+        if (typeof errorBody?.detail === 'string') {
+          detail = errorBody.detail;
+        } else if (typeof errorBody?.detail === 'object') {
+          // FastAPI validation errors return detail as an array of objects
+          detail = JSON.stringify(errorBody.detail);
+        }
+      } catch {
+        // Response body wasn't JSON — keep the generic message
+      }
+      throw new ApiError(detail, response.status);
     }
 
     return response;
@@ -164,3 +191,14 @@ export async function getHistory() {
   const res = await safeFetch(`${BASE_URL}/history`, { method: 'GET' });
   return res.json() as Promise<any[]>;
 }
+
+export async function getFeedbackHistory() {
+  const res = await safeFetch(`${BASE_URL}/api/feedback/history`, { method: 'GET' });
+  return res.json() as Promise<any[]>;
+}
+
+export async function getEmailHistory() {
+  const res = await safeFetch(`${BASE_URL}/api/email/history`, { method: 'GET' });
+  return res.json() as Promise<any[]>;
+}
+

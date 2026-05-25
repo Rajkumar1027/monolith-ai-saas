@@ -1,7 +1,7 @@
 @echo off
 echo Starting MONOLITH Engine...
 
-start "Backend" cmd /k "cd /d C:\Users\grajk\OneDrive\Desktop\sentimental_rework && .\venv\Scripts\python.exe -m uvicorn project.main:app --host 127.0.0.1 --port 8000 --reload"
+start "Backend" cmd /k "cd /d C:\Users\grajk\OneDrive\Desktop\sentimental_rework && .\venv\Scripts\python.exe -m uvicorn project.main:app --host 0.0.0.0 --port 8000 --reload"
 
 timeout /t 3
 

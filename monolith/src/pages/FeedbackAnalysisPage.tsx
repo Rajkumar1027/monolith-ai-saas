@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Upload, Database, TrendingUp, MessageSquare, ShieldAlert, Zap, Target, PieChart as PieChartIcon, Sparkles, CheckCircle2, ArrowRight, XCircle, Info, Calendar } from 'lucide-react';
-import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { uploadFeedbackFile, askQuestion } from '../lib/api';
 
 interface AIReport {
@@ -16,14 +16,26 @@ interface FeedbackData {
   average_sentiment?: number;
   top_keywords?: string[];
   ai_report?: AIReport;
-  processed_data?: { text: string; sentiment: string; confidence: number; polarity: number }[];
+  processed_data?: { text: string; sentiment: string; confidence: number; polarity: number; date?: string | null }[];
   velocity_data?: { date: string; sentiment: number }[];
 }
+
+/** Sanitize the backend response so no array field is ever null */
+const normalizeData = (raw: any): FeedbackData => ({
+  total_rows:     raw?.total_rows     ?? 0,
+  average_sentiment: raw?.average_sentiment ?? 0,
+  top_keywords:   Array.isArray(raw?.top_keywords)   ? raw.top_keywords   : [],
+  ai_report:      raw?.ai_report ?? undefined,
+  processed_data: Array.isArray(raw?.processed_data) ? raw.processed_data : [],
+  velocity_data:  Array.isArray(raw?.velocity_data)  ? raw.velocity_data  : [],
+});
 
 const FeedbackAnalysisPage = () => {
   const [data, setData] = useState<FeedbackData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [view, setView] = useState('BAR');
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -40,17 +52,50 @@ const FeedbackAnalysisPage = () => {
     }
   }, []);
 
+  // ── Helper: parse a YYYY-MM-DD HH:MM:SS string to a Date safely ─────────────
+  const parseRowDate = (raw: string | null | undefined): Date | null => {
+    if (!raw) return null;
+    // Force ISO-compatible format so all browsers parse correctly
+    const iso = raw.trim().replace(' ', 'T');
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   const processFile = async (file: File) => {
+    setFileName(file.name);
     setLoading(true);
+    setUploadError(null);
     try {
       // Using centralized API client for automatic auth injection and error handling
       const result = await uploadFeedbackFile(file);
-      setData(result);
+      // Sanitize before storing — ensures no null arrays reach the render tree
+      const normalized = normalizeData(result);
+      setData(normalized);
+
+      // Auto-populate the date range to the full extent of the dataset
+      const dates = (normalized.processed_data ?? [])
+        .map(r => parseRowDate(r.date))
+        .filter((d): d is Date => d !== null)
+        .sort((a, b) => a.getTime() - b.getTime());
+
+      if (dates.length > 0) {
+        // Store as YYYY-MM-DD — the native value format for <input type="date">
+        const fmt = (d: Date) => {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}`;
+        };
+        setFromDate(fmt(dates[0]));
+        setToDate(fmt(dates[dates.length - 1]));
+      }
     } catch (err: any) {
       console.error("Neural Processing Failed", err);
       if (err.message === 'Session expired') {
         localStorage.clear();
         window.location.href = '/login?error=401';
+      } else {
+        setUploadError(err?.message || 'Unknown error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -122,20 +167,96 @@ const FeedbackAnalysisPage = () => {
     }
   };
 
+  // ── Build velocity_data: one aggregated point per calendar date ─────────────
+  const SENTIMENT_COLORS = { Positive: '#22c55e', Negative: '#ef4444', Neutral: '#6b7280' } as const;
+
+  const velocityData = useMemo(() => {
+    const rows = Array.isArray(data?.processed_data) ? data!.processed_data : [];
+    // Aggregate rows by YYYY-MM-DD date key
+    const byDate = new Map<string, { pos: number; neg: number; neu: number; ts: number }>();
+    for (const r of rows) {
+      if (!r.date) continue;
+      const ts = new Date(r.date.trim().replace(' ', 'T')).getTime();
+      if (isNaN(ts)) continue;
+      const dateKey = r.date.trim().split(' ')[0];
+      const entry = byDate.get(dateKey) ?? { pos: 0, neg: 0, neu: 0, ts };
+      if (r.sentiment === 'Positive') entry.pos++;
+      else if (r.sentiment === 'Negative') entry.neg++;
+      else entry.neu++;
+      byDate.set(dateKey, entry);
+    }
+    return Array.from(byDate.entries())
+      .sort(([, a], [, b]) => a.ts - b.ts)
+      .map(([date, { pos, neg, neu, ts }]) => {
+        const total = pos + neg + neu;
+        const dominant: 'Positive' | 'Negative' | 'Neutral' =
+          pos >= neg && pos >= neu ? 'Positive' :
+          neg >= pos && neg >= neu ? 'Negative' : 'Neutral';
+        return { date, total, positive: pos, negative: neg, neutral: neu, dominant, color: SENTIMENT_COLORS[dominant], _ts: ts };
+      });
+  }, [data?.processed_data]);
+
+  // ── Parse a YYYY-MM-DD string (native <input type="date"> format) to a Date at start-of-day
+  const parseDMY = (s: string): Date | null => {
+    if (!s) return null;
+    // <input type="date"> always gives YYYY-MM-DD — use it directly as ISO
+    const d = new Date(`${s}T00:00:00`);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   const filteredVelocity = useMemo(() => {
-    if(!data?.velocity_data) return [];
-    return data.velocity_data.filter(d => {
-        if (fromDate && new Date(d.date) < new Date(fromDate)) return false;
-        if (toDate && new Date(d.date) > new Date(toDate)) return false;
-        return true;
+    const from = parseDMY(fromDate);
+    const to   = parseDMY(toDate);
+    // Set to end of day so the TO boundary is inclusive
+    if (to) to.setHours(23, 59, 59, 999);
+    return velocityData.filter(d => {
+      const t = new Date(d.date + 'T00:00:00').getTime();
+      if (from && t < from.getTime()) return false;
+      if (to   && t > to.getTime())   return false;
+      return true;
     });
-  }, [data?.velocity_data, fromDate, toDate]);
+  }, [velocityData, fromDate, toDate]);
+
+  // ── BAR mode tooltip (shows total + breakdown) ───────────────────────────────
+  const MomentumTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div style={{ backgroundColor: '#0a0a0a', border: '1px solid #222', borderRadius: 12, padding: '10px 14px', minWidth: 180 }}>
+        <p style={{ color: '#888', fontSize: 10, fontFamily: 'monospace', letterSpacing: '0.1em', marginBottom: 6 }}>{d.date}</p>
+        <p style={{ color: '#fff', fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{d.total} feedback entries</p>
+        <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
+          <span style={{ color: '#22c55e' }}>● Pos: {d.positive}</span>
+          <span style={{ color: '#ef4444' }}>● Neg: {d.negative}</span>
+          <span style={{ color: '#6b7280' }}>● Neu: {d.neutral}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // ── LINE mode tooltip (one row per series, no total) ─────────────────────────
+  const LineTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div style={{ backgroundColor: '#0a0a0a', border: '1px solid #222', borderRadius: 12, padding: '10px 14px', minWidth: 175 }}>
+        <p style={{ color: '#888', fontSize: 10, fontFamily: 'monospace', letterSpacing: '0.1em', marginBottom: 8 }}>{d.date}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12 }}>
+          <span style={{ color: '#22c55e', fontWeight: 600 }}>● Positive: {d.positive}</span>
+          <span style={{ color: '#ef4444', fontWeight: 600 }}>● Negative: {d.negative}</span>
+          <span style={{ color: '#6b7280', fontWeight: 600 }}>● Neutral:  {d.neutral}</span>
+        </div>
+      </div>
+    );
+  };
 
   const sentimentDistribution = useMemo(() => {
-    if (!data?.processed_data) return [];
-    const pos = data.processed_data.filter(x => x.sentiment === 'Positive').length;
-    const neg = data.processed_data.filter(x => x.sentiment === 'Negative').length;
-    const neu = data.processed_data.filter(x => x.sentiment === 'Neutral').length;
+    // Guard: processed_data must be a non-null array before calling .filter()
+    const rows = Array.isArray(data?.processed_data) ? data!.processed_data : [];
+    if (rows.length === 0) return [];
+    const pos = rows.filter(x => x.sentiment === 'Positive').length;
+    const neg = rows.filter(x => x.sentiment === 'Negative').length;
+    const neu = rows.filter(x => x.sentiment === 'Neutral').length;
     return [
       { name: 'Positive', value: pos, color: '#4ade80' },
       { name: 'Negative', value: neg, color: '#f87171' },
@@ -178,10 +299,30 @@ const FeedbackAnalysisPage = () => {
               Upload File
             </div>
             <input type="file" className="hidden" onChange={handleFileUpload} accept=".csv" />
+            {fileName && (
+              <p className="mt-3 text-xs text-white/50">
+                📄 {fileName}
+              </p>
+            )}
           </label>
         </div>
       </div>
 
+      {/* Upload error banner */}
+      {uploadError && (
+        <div className="mb-8 flex items-start gap-4 bg-red-500/10 border border-red-500/20 rounded-2xl p-5">
+          <div className="shrink-0 bg-red-500/10 p-2 rounded-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" className="text-red-400 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-red-400 font-bold text-xs tracking-widest uppercase mb-1">CSV Ingestion Failed</p>
+            <p className="text-red-300/70 text-xs leading-relaxed">{uploadError}</p>
+          </div>
+          <button onClick={() => setUploadError(null)} className="text-red-500/50 hover:text-red-400 transition-colors shrink-0 text-lg leading-none">×</button>
+        </div>
+      )}
 
       {/* SECTION 2: INTELLIGENCE CONSOLE (AI REPORT + Q&A) */}
       <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-2xl overflow-hidden">
@@ -404,8 +545,12 @@ const FeedbackAnalysisPage = () => {
         </div>
 
         <div className="col-span-12 lg:col-span-8 bg-[#0d0d0d] border border-white/5 rounded-[2.5rem] p-8 flex flex-col">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-            <h3 className="text-xs font-bold tracking-widest uppercase">Sentiment Momentum</h3>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-3 gap-4">
+            {/* Chart title + subtitle */}
+            <div>
+              <h3 className="text-xs font-bold tracking-widest uppercase">Sentiment Momentum</h3>
+              <p className="text-[10px] text-gray-600 mt-1">Daily feedback volume colored by dominant sentiment</p>
+            </div>
             <div className="flex items-center gap-4">
                <div className="flex items-center gap-6">
                  {/* From Selector */}
@@ -445,22 +590,120 @@ const FeedbackAnalysisPage = () => {
                </div>
             </div>
           </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-5 mb-6">
+            {[['#22c55e', 'Positive'], ['#ef4444', 'Negative'], ['#6b7280', 'Neutral']].map(([color, label]) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <span style={{ color, fontSize: 14, lineHeight: 1 }}>●</span>
+                <span className="text-[10px] text-gray-500 font-mono">{label}</span>
+              </div>
+            ))}
+          </div>
+
           <div className="flex-1 min-h-[12rem]">
-            <ResponsiveContainer width="100%" height="100%">
-               {view === 'BAR' ? (
-                 <BarChart data={filteredVelocity}>
-                   <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
-                   <XAxis dataKey="date" hide />
-                   <Tooltip contentStyle={{backgroundColor: '#000', border: '1px solid #222'}} />
-                   <Bar dataKey="sentiment" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                 </BarChart>
-               ) : (
-                 <AreaChart data={filteredVelocity}>
-                   <Tooltip contentStyle={{backgroundColor: '#000', border: '1px solid #222'}} />
-                   <Area type="monotone" dataKey="sentiment" stroke="#6366f1" fill="#6366f133" />
-                 </AreaChart>
-               )}
-            </ResponsiveContainer>
+            {filteredVelocity.length === 0 ? (
+              <div className="h-48 flex flex-col items-center justify-center text-center gap-2 opacity-40">
+                <TrendingUp size={28} className="text-gray-600" />
+                <p className="text-[10px] font-mono uppercase tracking-widest text-gray-600">
+                  {velocityData.length === 0
+                    ? 'No date data in dataset — ensure CSV has a Date/Time column'
+                    : 'No data found for the selected date range.'}
+                </p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                {view === 'BAR' ? (
+                  <BarChart data={filteredVelocity} margin={{ left: 8, right: 8, top: 4, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: '#555', fontSize: 9 }}
+                      interval={Math.max(0, Math.ceil(filteredVelocity.length / 10) - 1)}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fill: '#555', fontSize: 9 }}
+                      axisLine={false}
+                      tickLine={false}
+                      label={{ value: 'Feedback Volume', angle: -90, position: 'insideLeft', fill: '#444', fontSize: 9, dy: 50 }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip content={<MomentumTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                    <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                      {filteredVelocity.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                ) : (
+                  <LineChart data={filteredVelocity} margin={{ left: 8, right: 16, top: 8, bottom: 4 }}>
+                    <defs>
+                      <linearGradient id="fillPos" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="fillNeg" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="fillNeu" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6b7280" stopOpacity={0.12} />
+                        <stop offset="95%" stopColor="#6b7280" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: '#555', fontSize: 9 }}
+                      interval={Math.max(0, Math.ceil(filteredVelocity.length / 10) - 1)}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fill: '#555', fontSize: 9 }}
+                      axisLine={false}
+                      tickLine={false}
+                      label={{ value: 'Feedback Volume', angle: -90, position: 'insideLeft', fill: '#444', fontSize: 9, dy: 50 }}
+                      allowDecimals={false}
+                      domain={[0, (dataMax: number) => Math.max(dataMax, 1)]}
+                    />
+                    <Tooltip content={<LineTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.06)', strokeWidth: 1 }} />
+                    {/* Filled areas under each line for depth */}
+                    <Area type="monotone" dataKey="positive" stroke="none" fill="url(#fillPos)" fillOpacity={1} legendType="none" />
+                    <Area type="monotone" dataKey="negative" stroke="none" fill="url(#fillNeg)" fillOpacity={1} legendType="none" />
+                    <Area type="monotone" dataKey="neutral"  stroke="none" fill="url(#fillNeu)" fillOpacity={1} legendType="none" />
+                    {/* Lines on top of fills */}
+                    <Line
+                      type="monotone"
+                      dataKey="positive"
+                      stroke="#22c55e"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: '#22c55e', stroke: '#0a0a0a', strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: '#22c55e', stroke: '#fff', strokeWidth: 1.5 }}
+                      isAnimationActive={true}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="negative"
+                      stroke="#ef4444"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: '#ef4444', stroke: '#0a0a0a', strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 1.5 }}
+                      isAnimationActive={true}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="neutral"
+                      stroke="#6b7280"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: '#6b7280', stroke: '#0a0a0a', strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: '#6b7280', stroke: '#fff', strokeWidth: 1.5 }}
+                      isAnimationActive={true}
+                    />
+                  </LineChart>
+                )}
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
